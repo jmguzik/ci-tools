@@ -131,10 +131,17 @@ func newFeatureFreezeEvent(current, future string, delegate *sharedDataDelegate)
 }
 
 func (ffe featureFreezeEvent) ModifyQuery(q *prowconfig.TideQuery, repo string) {
-	ffe.ensureFeatureFreezeApprovals(q)
-	if ffe.repos.Has(repo) {
-		ffe.ensureFeatureFreezeBugs(q)
+	reqLabels := sets.NewString(q.Labels...)
+	branches := sets.NewString(q.IncludedBranches...)
+
+	if branches.Intersection(ffe.openshiftReleaseBranches).Len() > 0 && !strings.Contains(repo, openshiftPriv) {
+		if reqLabels.Has(staffEngApproved) {
+			reqLabels.Delete(staffEngApproved)
+		} else {
+			fmt.Printf("Suspicious query without staff-eng-approved, check manually: %s\n", q.Repos)
+		}
 	}
+	q.Labels = reqLabels.List()
 }
 
 func (ffe featureFreezeEvent) GetDataFromProwConfig(pc *prowconfig.ProwConfig) {
