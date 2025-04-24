@@ -676,7 +676,7 @@ func main() {
 		}
 	}
 
-	promVolumes, err := newPrometheusVolumes(o.PrometheusOptions, o.prometheusDaysBefore)
+	promVolumes, err := dispatcher.NewPrometheusVolumes(o.PrometheusOptions, o.prometheusDaysBefore)
 	if err != nil {
 		logrus.WithError(err).Fatal("failed to create prometheus volumes")
 	}
@@ -766,7 +766,7 @@ func main() {
 					}
 					return api.Cloud(info.Provider), nil
 				})
-			pjs, err := dispatchJobs(o.prowJobConfigDir, config, jobVolumes, blocked, promVolumes.calculateVolumeDistribution(configClusterMap), configClusterMap)
+			pjs, err := dispatchJobs(o.prowJobConfigDir, config, jobVolumes, blocked, promVolumes.CalculateVolumeDistribution(configClusterMap), configClusterMap)
 			if err != nil {
 				logrus.WithError(err).Error("failed to dispatch")
 				return
