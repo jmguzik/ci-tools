@@ -187,6 +187,7 @@ const ciOperatorReferenceYaml = "# The list of base images describe\n" +
 	"    # Items is the list of images to build.\n" +
 	"    items:\n" +
 	"        - # AdditionalArchitectures is a list of additional architectures to build for. AMD64 architecture is included by default.\n" +
+	"          # DEPRECATED: use Capabilities instead\n" +
 	"          additional_architectures:\n" +
 	"            - \"\"\n" +
 	"          # BuildArgs contains build arguments that will be resolved in the Dockerfile.\n" +
@@ -196,6 +197,10 @@ const ciOperatorReferenceYaml = "# The list of base images describe\n" +
 	"              name: ' '\n" +
 	"              # Value of the build arg.\n" +
 	"              value: ' '\n" +
+	"          # Capabilities is the list of strings that\n" +
+	"          # define additional capabilities needed by the image build jobs\n" +
+	"          capabilities:\n" +
+	"            - \"\"\n" +
 	"          # ContextDir is the directory in the project\n" +
 	"          # from which this build should be run.\n" +
 	"          context_dir: ' '\n" +
@@ -451,6 +456,7 @@ const ciOperatorReferenceYaml = "# The list of base images describe\n" +
 	"        ref: ' '\n" +
 	"      project_directory_image_build_step:\n" +
 	"        # AdditionalArchitectures is a list of additional architectures to build for. AMD64 architecture is included by default.\n" +
+	"        # DEPRECATED: use Capabilities instead\n" +
 	"        additional_architectures:\n" +
 	"            - \"\"\n" +
 	"        # BuildArgs contains build arguments that will be resolved in the Dockerfile.\n" +
@@ -460,6 +466,10 @@ const ciOperatorReferenceYaml = "# The list of base images describe\n" +
 	"              name: ' '\n" +
 	"              # Value of the build arg.\n" +
 	"              value: ' '\n" +
+	"        # Capabilities is the list of strings that\n" +
+	"        # define additional capabilities needed by the image build jobs\n" +
+	"        capabilities:\n" +
+	"            - \"\"\n" +
 	"        # ContextDir is the directory in the project\n" +
 	"        # from which this build should be run.\n" +
 	"        context_dir: ' '\n" +
