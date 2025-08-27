@@ -27,6 +27,16 @@ func TestExtractVersion(t *testing.T) {
 			expected: "4.14",
 		},
 		{
+			name:     "nightly branch",
+			input:    "master__nightly-4.17",
+			expected: "4.17",
+		},
+		{
+			name:     "nightly branch with prefix",
+			input:    "some-prefix__nightly-4.19",
+			expected: "4.19",
+		},
+		{
 			name:     "invalid format",
 			input:    "main",
 			expected: "",
@@ -338,6 +348,7 @@ func TestUpdateIntervalFieldsForMatchedSteps(t *testing.T) {
 		expectCronChange     bool
 		expectIntervalChange bool
 		expectYearlyCron     bool
+		clusterProfile       string
 	}{
 		{
 			name:                 "n-3 daily to yearly",
@@ -395,15 +406,15 @@ func TestUpdateIntervalFieldsForMatchedSteps(t *testing.T) {
 			expectYearlyCron:     false,
 		},
 		{
-			name:                 "non-openshift unchanged",
+			name:                 "non-openshift n-3 to yearly",
 			testVersion:          "4.14",
 			org:                  "other-org",
 			testName:             "e2e-test",
 			initialCron:          stringPtr("0 0 * * *"),
 			initialInterval:      nil,
-			expectCronChange:     false,
+			expectCronChange:     true,
 			expectIntervalChange: false,
-			expectYearlyCron:     false,
+			expectYearlyCron:     true,
 		},
 		{
 			name:                 "openshift-priv org",
@@ -460,19 +471,71 @@ func TestUpdateIntervalFieldsForMatchedSteps(t *testing.T) {
 			expectIntervalChange: false,
 			expectYearlyCron:     false,
 		},
+		{
+			name:                 "job without required keywords unchanged",
+			testVersion:          "4.14",
+			org:                  "openshift",
+			testName:             "some-other-test",
+			initialCron:          stringPtr("0 0 * * *"),
+			initialInterval:      nil,
+			expectCronChange:     false,
+			expectIntervalChange: false,
+			expectYearlyCron:     false,
+		},
+		{
+			name:                 "n-3 @daily macro converted to yearly",
+			testVersion:          "4.14",
+			org:                  "openshift",
+			testName:             "e2e-test",
+			initialCron:          stringPtr("@daily"),
+			initialInterval:      nil,
+			expectCronChange:     true,
+			expectIntervalChange: false,
+			expectYearlyCron:     true,
+		},
+		{
+			name:                 "n-2 @weekly macro converted to bi-weekly",
+			testVersion:          "4.15",
+			org:                  "openshift",
+			testName:             "e2e-test",
+			initialCron:          stringPtr("@weekly"),
+			initialInterval:      nil,
+			expectCronChange:     true,
+			expectIntervalChange: false,
+			expectYearlyCron:     false,
+		},
+		{
+			name:                 "job with QE cluster profile should be excluded",
+			testVersion:          "4.14",
+			org:                  "openshift",
+			testName:             "e2e-test",
+			initialCron:          stringPtr("0 0 * * *"),
+			initialInterval:      nil,
+			expectCronChange:     false,
+			expectIntervalChange: false,
+			expectYearlyCron:     false,
+			clusterProfile:       "aws-qe",
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			testConfig := api.TestStepConfiguration{
+				As:       tc.testName,
+				Cron:     tc.initialCron,
+				Interval: tc.initialInterval,
+			}
+
+			// Add cluster profile if specified
+			if tc.clusterProfile != "" {
+				testConfig.MultiStageTestConfiguration = &api.MultiStageTestConfiguration{
+					ClusterProfile: api.ClusterProfile(tc.clusterProfile),
+				}
+			}
+
 			config := &config.DataWithInfo{
 				Configuration: api.ReleaseBuildConfiguration{
-					Tests: []api.TestStepConfiguration{
-						{
-							As:       tc.testName,
-							Cron:     tc.initialCron,
-							Interval: tc.initialInterval,
-						},
-					},
+					Tests: []api.TestStepConfiguration{testConfig},
 				},
 				Info: config.Info{
 					Metadata: api.Metadata{
@@ -623,6 +686,253 @@ func TestGatherOptions(t *testing.T) {
 
 	if opts.currentOCPVersion != "4.17" {
 		t.Errorf("Expected currentOCPVersion to be '4.17', got %q", opts.currentOCPVersion)
+	}
+}
+
+func TestShouldProcessJobByName(t *testing.T) {
+	tests := []struct {
+		name           string
+		testName       string
+		expectedResult bool
+	}{
+		{
+			name:           "job with e2e keyword",
+			testName:       "some-e2e-test",
+			expectedResult: true,
+		},
+		{
+			name:           "job with upgrade keyword",
+			testName:       "upgrade-cluster-test",
+			expectedResult: true,
+		},
+		{
+			name:           "job with vsphere keyword",
+			testName:       "vsphere-deployment-test",
+			expectedResult: true,
+		},
+		{
+			name:           "job with aws keyword",
+			testName:       "aws-cloud-test",
+			expectedResult: true,
+		},
+		{
+			name:           "job with nightly keyword",
+			testName:       "nightly-build-test",
+			expectedResult: true,
+		},
+		{
+			name:           "job with metal keyword",
+			testName:       "bare-metal-test",
+			expectedResult: true,
+		},
+		{
+			name:           "job with conformance keyword",
+			testName:       "conformance-suite",
+			expectedResult: true,
+		},
+		{
+			name:           "job with ocp keyword",
+			testName:       "ocp-basic-test",
+			expectedResult: true,
+		},
+		{
+			name:           "job with uppercase keyword",
+			testName:       "E2E-Test-Suite",
+			expectedResult: true,
+		},
+		{
+			name:           "job with multiple keywords",
+			testName:       "e2e-aws-upgrade-test",
+			expectedResult: true,
+		},
+		{
+			name:           "job without any keywords",
+			testName:       "some-other-test",
+			expectedResult: false,
+		},
+		{
+			name:           "mirror job should not be processed",
+			testName:       "mirror-registry-test",
+			expectedResult: false,
+		},
+		{
+			name:           "promote job should not be processed",
+			testName:       "promote-images",
+			expectedResult: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := shouldProcessJobByName(tc.testName)
+			if result != tc.expectedResult {
+				t.Errorf("Expected %v, got %v", tc.expectedResult, result)
+			}
+		})
+	}
+}
+
+func TestShouldExcludeQEClusterProfile(t *testing.T) {
+	tests := []struct {
+		name           string
+		testConfig     *api.TestStepConfiguration
+		expectedResult bool
+	}{
+		{
+			name: "job with QE cluster profile should be excluded",
+			testConfig: &api.TestStepConfiguration{
+				As: "e2e-test",
+				MultiStageTestConfiguration: &api.MultiStageTestConfiguration{
+					ClusterProfile: api.ClusterProfile("aws-qe"),
+				},
+			},
+			expectedResult: true,
+		},
+		{
+			name: "job with QE cluster profile uppercase should be excluded",
+			testConfig: &api.TestStepConfiguration{
+				As: "e2e-test",
+				MultiStageTestConfiguration: &api.MultiStageTestConfiguration{
+					ClusterProfile: api.ClusterProfile("AWS-QE"),
+				},
+			},
+			expectedResult: true,
+		},
+		{
+			name: "job with QE in middle of cluster profile should be excluded",
+			testConfig: &api.TestStepConfiguration{
+				As: "e2e-test",
+				MultiStageTestConfiguration: &api.MultiStageTestConfiguration{
+					ClusterProfile: api.ClusterProfile("hypershift-qe-powervs"),
+				},
+			},
+			expectedResult: true,
+		},
+		{
+			name: "job with regular cluster profile should not be excluded",
+			testConfig: &api.TestStepConfiguration{
+				As: "e2e-test",
+				MultiStageTestConfiguration: &api.MultiStageTestConfiguration{
+					ClusterProfile: api.ClusterProfileAWS,
+				},
+			},
+			expectedResult: false,
+		},
+		{
+			name: "job without cluster profile should not be excluded",
+			testConfig: &api.TestStepConfiguration{
+				As: "e2e-test",
+			},
+			expectedResult: false,
+		},
+		{
+			name: "job with cluster profile containing 'que' but not '-qe' should not be excluded",
+			testConfig: &api.TestStepConfiguration{
+				As: "e2e-test",
+				MultiStageTestConfiguration: &api.MultiStageTestConfiguration{
+					ClusterProfile: api.ClusterProfile("request-queue"),
+				},
+			},
+			expectedResult: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := shouldExcludeQEClusterProfile(tc.testConfig)
+			if result != tc.expectedResult {
+				t.Errorf("Expected %v, got %v", tc.expectedResult, result)
+			}
+		})
+	}
+}
+
+func TestConvertCronMacroToGenerated(t *testing.T) {
+	tests := []struct {
+		name           string
+		inputCron      string
+		expectChange   bool
+		validateResult func(string) bool
+	}{
+		{
+			name:         "@daily should be converted",
+			inputCron:    "@daily",
+			expectChange: true,
+			validateResult: func(result string) bool {
+				// Should convert to weekend cron
+				return result != "@daily" && result != ""
+			},
+		},
+		{
+			name:         "@weekly should be converted",
+			inputCron:    "@weekly",
+			expectChange: true,
+			validateResult: func(result string) bool {
+				// Should convert to bi-weekly cron
+				return result != "@weekly" && result != ""
+			},
+		},
+		{
+			name:         "@monthly should be converted",
+			inputCron:    "@monthly",
+			expectChange: true,
+			validateResult: func(result string) bool {
+				// Should convert to generated monthly cron
+				return result != "@monthly" && result != ""
+			},
+		},
+		{
+			name:         "@yearly should be converted",
+			inputCron:    "@yearly",
+			expectChange: true,
+			validateResult: func(result string) bool {
+				// Should convert to generated yearly cron
+				return result != "@yearly" && result != ""
+			},
+		},
+		{
+			name:         "@annually should be converted",
+			inputCron:    "@annually",
+			expectChange: true,
+			validateResult: func(result string) bool {
+				// Should convert to generated yearly cron
+				return result != "@annually" && result != ""
+			},
+		},
+		{
+			name:         "regular cron should remain unchanged",
+			inputCron:    "0 0 * * *",
+			expectChange: false,
+			validateResult: func(result string) bool {
+				return result == "0 0 * * *"
+			},
+		},
+		{
+			name:         "custom cron should remain unchanged",
+			inputCron:    "30 14 * * 1",
+			expectChange: false,
+			validateResult: func(result string) bool {
+				return result == "30 14 * * 1"
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			result := convertCronMacroToGenerated(tc.inputCron)
+
+			if tc.expectChange && result == tc.inputCron {
+				t.Errorf("Expected cron to be converted, but it remained: %s", result)
+			}
+
+			if !tc.expectChange && result != tc.inputCron {
+				t.Errorf("Expected cron to remain unchanged, but it changed from %s to %s", tc.inputCron, result)
+			}
+
+			if !tc.validateResult(result) {
+				t.Errorf("Validation failed for result: %s", result)
+			}
+		})
 	}
 }
 
@@ -784,7 +1094,7 @@ func TestUpdateIntervalFieldsWithClusterProfileFiltering(t *testing.T) {
 		{
 			name: "n-3 test with allowed cluster profile should be modified",
 			testConfig: &api.TestStepConfiguration{
-				As:   "test-allowed",
+				As:   "e2e-test-allowed",
 				Cron: stringPtr("0 0 * * *"), // daily cron for n-3 should change to yearly
 				MultiStageTestConfiguration: &api.MultiStageTestConfiguration{
 					ClusterProfile: api.ClusterProfileAWS,
@@ -798,7 +1108,7 @@ func TestUpdateIntervalFieldsWithClusterProfileFiltering(t *testing.T) {
 		{
 			name: "n-3 test with disallowed cluster profile should not be modified",
 			testConfig: &api.TestStepConfiguration{
-				As:   "test-disallowed",
+				As:   "e2e-test-disallowed",
 				Cron: stringPtr("0 0 * * *"), // daily cron for n-3 should NOT change
 				MultiStageTestConfiguration: &api.MultiStageTestConfiguration{
 					ClusterProfile: api.ClusterProfileGCP,

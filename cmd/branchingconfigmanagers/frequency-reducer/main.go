@@ -272,30 +272,85 @@ func updateIntervalFieldsForMatchedSteps(
 	version ocplifecycle.MajorMinor,
 	allowedClusterProfiles map[string]bool,
 ) {
-	testVersion, err := ocplifecycle.ParseMajorMinor(extractVersion(configuration.Info.Metadata.Branch))
+	branchName := configuration.Info.Metadata.Branch
+	variantName := configuration.Info.Metadata.Variant
+
+	// Try to extract version from branch first, then from variant
+	branchVersion := extractVersion(branchName)
+	variantVersion := ""
+	if variantName != "" {
+		variantVersion = extractVersion(variantName)
+	}
+
+	// Prefer OCP version (4.x) over other versions (like Knative 1.x)
+	extractedVersion := branchVersion
+	if variantVersion != "" && strings.HasPrefix(variantVersion, "4.") {
+		if !strings.HasPrefix(branchVersion, "4.") {
+			extractedVersion = variantVersion
+		}
+	} else if extractedVersion == "" && variantVersion != "" {
+		extractedVersion = variantVersion
+	}
+
+	logrus.Debugf("Processing config: org=%s, repo=%s, branch=%s, variant=%s, extracted_version=%s",
+		configuration.Info.Metadata.Org, configuration.Info.Metadata.Repo, branchName, variantName, extractedVersion)
+
+	testVersion, err := ocplifecycle.ParseMajorMinor(extractedVersion)
 	if err != nil {
+		logrus.Debugf("Failed to parse version '%s' from branch '%s': %v", extractedVersion, branchName, err)
 		return
 	}
-	if configuration.Info.Metadata.Org == "openshift" || configuration.Info.Metadata.Org == "openshift-priv" {
-		for i := range configuration.Configuration.Tests {
-			test := &configuration.Configuration.Tests[i]
-			if !strings.Contains(test.As, "mirror-nightly-image") && !strings.Contains(test.As, "promote-") {
-				// Skip tests that don't match the cluster profiles filter
-				if allowedClusterProfiles != nil && !shouldProcessTest(test, allowedClusterProfiles) {
-					continue
-				}
-				if test.Cron != nil {
-					n3Version := ocplifecycle.MajorMinor{Major: version.Major, Minor: version.Minor - 3}
-					if testVersion.Less(n3Version) || *testVersion == n3Version {
-						correctCron, err := isExecutedAtMostOncePerYear(*test.Cron)
-						if err != nil {
-							logrus.Warningf("Can't parse cron string %s", *test.Cron)
-							continue
-						}
-						if !correctCron {
-							*test.Cron = generateYearlyCron()
-						}
-					} else if testVersion.GetVersion() == fmt.Sprintf("%d.%d", version.Major, version.Minor-2) {
+	for i := range configuration.Configuration.Tests {
+		test := &configuration.Configuration.Tests[i]
+		if !strings.Contains(test.As, "mirror-nightly-image") && !strings.Contains(test.As, "promote-") {
+			// Skip tests that don't have required keywords in their name
+			if !shouldProcessJobByName(test.As) {
+				logrus.Debugf("Skipping job '%s' - does not contain required keywords", test.As)
+				continue
+			}
+			logrus.Debugf("Processing job '%s' - contains required keywords", test.As)
+			// Skip tests with cluster profiles containing "-qe"
+			if shouldExcludeQEClusterProfile(test) {
+				logrus.Debugf("Skipping job '%s' - cluster profile contains '-qe': %s", test.As, test.GetClusterProfileName())
+				continue
+			}
+			// Skip tests that don't match the cluster profiles filter
+			if allowedClusterProfiles != nil && !shouldProcessTest(test, allowedClusterProfiles) {
+				logrus.Debugf("Skipping job '%s' - cluster profile not in allowed list: %s", test.As, test.GetClusterProfileName())
+				continue
+			}
+			if test.Cron != nil {
+				n3Version := ocplifecycle.MajorMinor{Major: version.Major, Minor: version.Minor - 3}
+				if testVersion.Less(n3Version) || *testVersion == n3Version {
+					// Convert cron macros to generated expressions for n-3+ releases
+					convertedCron := convertCronMacroToGenerated(*test.Cron)
+					*test.Cron = convertedCron
+
+					correctCron, err := isExecutedAtMostOncePerYear(*test.Cron)
+					if err != nil {
+						logrus.Warningf("Can't parse cron string %s", *test.Cron)
+						continue
+					}
+					if !correctCron {
+						*test.Cron = generateYearlyCron()
+					}
+				} else if testVersion.GetVersion() == fmt.Sprintf("%d.%d", version.Major, version.Minor-2) {
+					// Convert cron macros to generated expressions for n-2 releases
+					convertedCron := convertCronMacroToGenerated(*test.Cron)
+					*test.Cron = convertedCron
+
+					// First check if it's too infrequent (yearly/less)
+					isYearlyOrLess, err := isExecutedAtMostOncePerYear(*test.Cron)
+					if err != nil {
+						logrus.Warningf("Can't parse cron string %s", *test.Cron)
+						continue
+					}
+
+					if isYearlyOrLess {
+						// If it's yearly or less frequent, definitely needs to be bi-weekly
+						*test.Cron = generateBiWeeklyCron()
+					} else {
+						// Check if it meets bi-weekly frequency requirement
 						correctCron, err := isExecutedAtMostXTimesAMonth(*test.Cron, 2)
 						if err != nil {
 							logrus.Warningf("Can't parse cron string %s", *test.Cron)
@@ -304,7 +359,24 @@ func updateIntervalFieldsForMatchedSteps(
 						if !correctCron {
 							*test.Cron = generateBiWeeklyCron()
 						}
-					} else if testVersion.GetVersion() == version.GetPastVersion() {
+					}
+				} else if testVersion.GetVersion() == version.GetPastVersion() {
+					// Convert cron macros to generated expressions for n-1 releases
+					convertedCron := convertCronMacroToGenerated(*test.Cron)
+					*test.Cron = convertedCron
+
+					// First check if it's too infrequent (yearly/less)
+					isYearlyOrLess, err := isExecutedAtMostOncePerYear(*test.Cron)
+					if err != nil {
+						logrus.Warningf("Can't parse cron string %s", *test.Cron)
+						continue
+					}
+
+					if isYearlyOrLess {
+						// If it's yearly or less frequent, definitely needs to be weekly
+						*test.Cron = generateWeeklyWeekendCron()
+					} else {
+						// Check if it meets weekly frequency requirement
 						correctCron, err := isExecutedAtMostXTimesAMonth(*test.Cron, 4)
 						if err != nil {
 							logrus.Warningf("Can't parse cron string %s", *test.Cron)
@@ -315,41 +387,42 @@ func updateIntervalFieldsForMatchedSteps(
 						}
 					}
 				}
-				if test.Interval != nil {
-					n3Version := ocplifecycle.MajorMinor{Major: version.Major, Minor: version.Minor - 3}
-					if testVersion.Less(n3Version) || *testVersion == n3Version {
-						duration, err := time.ParseDuration(*test.Interval)
-						if err != nil {
-							logrus.Warningf("Can't parse interval string %s", *test.Interval)
-							continue
-						}
-						if duration < time.Hour*24*365 {
-							cronExpr := generateYearlyCron()
-							test.Cron = &cronExpr
-							test.Interval = nil
-						}
-					} else if testVersion.GetVersion() == fmt.Sprintf("%d.%d", version.Major, version.Minor-2) {
-						duration, err := time.ParseDuration(*test.Interval)
-						if err != nil {
-							logrus.Warningf("Can't parse interval string %s", *test.Interval)
-							continue
-						}
-						if duration < time.Hour*24*14 {
-							cronExpr := generateBiWeeklyCron()
-							test.Cron = &cronExpr
-							test.Interval = nil
-						}
-					} else if testVersion.GetVersion() == version.GetPastVersion() {
-						duration, err := time.ParseDuration(*test.Interval)
-						if err != nil {
-							logrus.Warningf("Can't parse interval string %s", *test.Interval)
-							continue
-						}
-						if duration < time.Hour*24*7 {
-							cronExpr := generateWeeklyWeekendCron()
-							test.Cron = &cronExpr
-							test.Interval = nil
-						}
+				// Current release (4.20) - no modifications at all
+			}
+			if test.Interval != nil {
+				n3Version := ocplifecycle.MajorMinor{Major: version.Major, Minor: version.Minor - 3}
+				if testVersion.Less(n3Version) || *testVersion == n3Version {
+					duration, err := time.ParseDuration(*test.Interval)
+					if err != nil {
+						logrus.Warningf("Can't parse interval string %s", *test.Interval)
+						continue
+					}
+					if duration < time.Hour*24*365 {
+						cronExpr := generateYearlyCron()
+						test.Cron = &cronExpr
+						test.Interval = nil
+					}
+				} else if testVersion.GetVersion() == fmt.Sprintf("%d.%d", version.Major, version.Minor-2) {
+					duration, err := time.ParseDuration(*test.Interval)
+					if err != nil {
+						logrus.Warningf("Can't parse interval string %s", *test.Interval)
+						continue
+					}
+					if duration < time.Hour*24*14 {
+						cronExpr := generateBiWeeklyCron()
+						test.Cron = &cronExpr
+						test.Interval = nil
+					}
+				} else if testVersion.GetVersion() == version.GetPastVersion() {
+					duration, err := time.ParseDuration(*test.Interval)
+					if err != nil {
+						logrus.Warningf("Can't parse interval string %s", *test.Interval)
+						continue
+					}
+					if duration < time.Hour*24*7 {
+						cronExpr := generateWeeklyWeekendCron()
+						test.Cron = &cronExpr
+						test.Interval = nil
 					}
 				}
 			}
@@ -368,6 +441,48 @@ func shouldProcessTest(test *api.TestStepConfiguration, allowedClusterProfiles m
 
 	// Check if the cluster profile is in the allowed list
 	return allowedClusterProfiles[clusterProfile]
+}
+
+// shouldProcessJobByName checks if a job should be processed based on its name containing required keywords
+func shouldProcessJobByName(testName string) bool {
+	requiredKeywords := []string{"e2e", "upgrade", "vsphere", "aws", "nightly", "metal", "conformance", "ocp"}
+	testNameLower := strings.ToLower(testName)
+
+	for _, keyword := range requiredKeywords {
+		if strings.Contains(testNameLower, keyword) {
+			return true
+		}
+	}
+	return false
+}
+
+// shouldExcludeQEClusterProfile checks if a test should be excluded due to cluster profile containing "-qe"
+func shouldExcludeQEClusterProfile(test *api.TestStepConfiguration) bool {
+	clusterProfile := test.GetClusterProfileName()
+
+	// If the test doesn't have a cluster profile, don't exclude it
+	if clusterProfile == "" {
+		return false
+	}
+
+	// Exclude if cluster profile contains "-qe"
+	return strings.Contains(strings.ToLower(clusterProfile), "-qe")
+}
+
+// convertCronMacroToGenerated converts cron macros to generated cron expressions
+func convertCronMacroToGenerated(cronExpr string) string {
+	switch strings.ToLower(cronExpr) {
+	case "@daily":
+		return generateWeeklyWeekendCron() // Convert daily to weekend cron for reduced frequency
+	case "@weekly":
+		return generateBiWeeklyCron() // Convert weekly to bi-weekly for reduced frequency
+	case "@monthly":
+		return generateMonthlyCron() // Keep monthly but use generated cron
+	case "@yearly", "@annually":
+		return generateYearlyCron() // Keep yearly but use generated cron
+	default:
+		return cronExpr // Return as-is if not a macro
+	}
 }
 
 func isExecutedAtMostOncePerYear(cronExpr string) (bool, error) {
@@ -390,7 +505,7 @@ func isExecutedAtMostOncePerYear(cronExpr string) (bool, error) {
 	end := start.AddDate(1, 0, 0)
 
 	executionCount := 0
-	maxIterations := 400
+	maxIterations := 1000 // Increased to handle frequent cron expressions (e.g., twice daily = ~730/year)
 	iterations := 0
 
 	for {
@@ -479,13 +594,25 @@ func generateYearlyCron() string {
 }
 
 func extractVersion(s string) string {
-	pattern := `^(release|openshift)-(\d+\.\d+)$`
+	// Match patterns like: release-4.17, openshift-4.17, master__nightly-4.17
+	pattern := `^(?:release|openshift)-(\d+\.\d+)$|^.*nightly-(\d+\.\d+)$`
 	re := regexp.MustCompile(pattern)
 
 	matches := re.FindStringSubmatch(s)
 
-	if len(matches) > 2 {
-		return matches[2]
+	if len(matches) > 1 {
+		// Return the first non-empty captured group
+		for i := 1; i < len(matches); i++ {
+			if matches[i] != "" {
+				return matches[i]
+			}
+		}
 	}
+
+	// Check for variant patterns like "419" -> "4.19", "420" -> "4.20"
+	if len(s) == 3 && s[0] == '4' {
+		return s[0:1] + "." + s[1:3]
+	}
+
 	return ""
 }
