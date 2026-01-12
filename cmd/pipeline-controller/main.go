@@ -576,6 +576,7 @@ func (cw *clientWrapper) handlePipelineContextCreation(l *logrus.Entry, event gi
 			logger.WithField("test", presubmit.Name).Info("created pending context for protected test")
 		}
 	}
+
 }
 
 // createContext creates a GitHub status context
