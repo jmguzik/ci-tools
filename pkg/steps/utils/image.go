@@ -87,7 +87,50 @@ func FindStatusTag(is *imagev1.ImageStream, tag string) (*coreapi.ObjectReferenc
 
 const DefaultImageImportTimeout = 45 * time.Minute
 
+func shouldRetryImportTag(conditionMessage string) bool {
+	message := strings.ToLower(conditionMessage)
+	if message == "" {
+		return false
+	}
+
+	permanentFailures := []string{
+		"manifest unknown",
+		"name unknown",
+		"not found",
+		"unauthorized",
+		"authentication required",
+		"requested access to the resource is denied",
+		"pull access denied",
+	}
+	for _, failure := range permanentFailures {
+		if strings.Contains(message, failure) {
+			return false
+		}
+	}
+
+	transientFailures := []string{
+		"internal error occurred",
+		"context deadline exceeded",
+		"i/o timeout",
+		"tls handshake timeout",
+		"connection reset",
+		"connection refused",
+		"timed out",
+		"temporarily unavailable",
+		"service unavailable",
+		"gateway timeout",
+	}
+	for _, failure := range transientFailures {
+		if strings.Contains(message, failure) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func getEvaluator(ctx context.Context, client ctrlruntimeclient.Client, ns, name string, tags sets.Set[string], metricsAgent *metrics.MetricsAgent) func(obj runtime.Object) (bool, error) {
+	reimportedTags := sets.New[string]()
 	return func(obj runtime.Object) (bool, error) {
 		switch stream := obj.(type) {
 		case *imagev1.ImageStream:
@@ -103,7 +146,7 @@ func getEvaluator(ctx context.Context, client ctrlruntimeclient.Client, ns, name
 				_, exist, condition := util.ResolvePullSpec(stream, tag.Name, true)
 				if !exist {
 					logrus.WithField("conditionMessage", condition.Message).Debugf("Waiting to import tag[%d] on imagestream %s/%s:%s ...", i, stream.Namespace, stream.Name, tag.Name)
-					if strings.Contains(condition.Message, "Internal error occurred") {
+					if shouldRetryImportTag(condition.Message) && !reimportedTags.Has(tag.Name) {
 						if tag.From == nil {
 							// should never happen
 							return false, fmt.Errorf("failed to determine the source of the tag %s/%s:%s", stream.Namespace, stream.Name, tag.Name)
@@ -116,6 +159,7 @@ func getEvaluator(ctx context.Context, client ctrlruntimeclient.Client, ns, name
 							// should never happen
 							return false, fmt.Errorf("failed to import tag %s/%s:%s from an empty source", stream.Namespace, stream.Name, tag.Name)
 						}
+						reimportedTags.Insert(tag.Name)
 						if _, err := ImportTagWithRetries(ctx, client, ns, name, tag.Name, tag.From.Name, api.ImageStreamImportRetries, metricsAgent); err != nil {
 							return false, fmt.Errorf("failed to reimport the tag %s/%s:%s: %w", stream.Namespace, stream.Name, tag.Name, err)
 						}

@@ -84,6 +84,54 @@ func TestReimportTag(t *testing.T) {
 	}
 }
 
+func TestShouldRetryImportTag(t *testing.T) {
+	testCases := []struct {
+		name     string
+		message  string
+		expected bool
+	}{
+		{
+			name:     "empty message does not retry",
+			message:  "",
+			expected: false,
+		},
+		{
+			name:     "internal error retries",
+			message:  "Internal error occurred: blah",
+			expected: true,
+		},
+		{
+			name:     "timeout retries",
+			message:  "dial tcp: i/o timeout",
+			expected: true,
+		},
+		{
+			name:     "service unavailable retries",
+			message:  "service unavailable",
+			expected: true,
+		},
+		{
+			name:     "manifest unknown does not retry",
+			message:  "manifest unknown",
+			expected: false,
+		},
+		{
+			name:     "unauthorized does not retry",
+			message:  "unauthorized: access denied",
+			expected: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			actual := shouldRetryImportTag(tc.message)
+			if diff := cmp.Diff(tc.expected, actual); diff != "" {
+				t.Fatalf("unexpected result: %s", diff)
+			}
+		})
+	}
+}
+
 func bcc(upstream ctrlruntimeclient.Client) ctrlruntimeclient.Client {
 	c := &imageStreamImportStatusSettingClient{
 		Client: upstream,
@@ -219,6 +267,37 @@ func TestGetEvaluator(t *testing.T) {
 							Conditions: []imagev1.TagEventCondition{
 								{
 									Message: "Internal error occurred: a and b",
+								},
+							},
+						},
+					},
+				},
+			},
+			expected:      false,
+			expectedErr:   fmt.Errorf("failed to reimport the tag some error/is:cli: unable to import tag some error/is:cli at import (0): some error"),
+			expectedCount: 1,
+		},
+		{
+			name:   "reimport transient timeout with error",
+			client: bcc(fakectrlruntimeclient.NewClientBuilder().Build()),
+			obj: &imagev1.ImageStream{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "is",
+					Namespace: "some error",
+				},
+				Spec: imagev1.ImageStreamSpec{
+					Tags: []imagev1.TagReference{
+						{Name: "cli", From: &coreapi.ObjectReference{Kind: "DockerImage", Name: "reg.com/ns/n:t"}},
+					},
+				},
+				Status: imagev1.ImageStreamStatus{
+					PublicDockerImageRepository: "registry",
+					Tags: []imagev1.NamedTagEventList{
+						{
+							Tag: "cli",
+							Conditions: []imagev1.TagEventCondition{
+								{
+									Message: "dial tcp 1.2.3.4:443: i/o timeout",
 								},
 							},
 						},
