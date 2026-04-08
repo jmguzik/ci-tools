@@ -295,6 +295,8 @@ func TestAcquireLeases(t *testing.T) {
 				api.ClusterProfileSetEnv:          "",
 				api.ClusterProfileParam:           "",
 				api.ClusterProfileSecretNameParam: "",
+				api.STSHubRoleARNParam:            "",
+				api.STSTargetRoleARNParam:         "",
 				"lease-0":                         "res-type-0",
 				"lease-1":                         "res-type-1",
 				"parameter":                       "map",
@@ -341,6 +343,8 @@ func TestAcquireLeases(t *testing.T) {
 				api.ClusterProfileSetEnv:          "",
 				api.ClusterProfileParam:           "aws",
 				api.ClusterProfileSecretNameParam: "cluster-secrets-aws",
+				api.STSHubRoleARNParam:            "",
+				api.STSTargetRoleARNParam:         "",
 				api.DefaultLeaseEnv:               "us-east-1",
 			},
 			wantSecrets: corev1.SecretList{
@@ -416,6 +420,8 @@ func TestAcquireLeases(t *testing.T) {
 				api.ClusterProfileSetEnv:          "",
 				api.ClusterProfileParam:           "aws",
 				api.ClusterProfileSecretNameParam: "cluster-secrets-aws",
+				api.STSHubRoleARNParam:            "",
+				api.STSTargetRoleARNParam:         "",
 				api.DefaultLeaseEnv:               "us-east-1",
 				"FOOBAR_RESOURCE":                 "foobar-res-0",
 			},
@@ -451,6 +457,75 @@ func TestAcquireLeases(t *testing.T) {
 				"acquireWaitWithPriority owner foobar free leased random",
 				"releaseone owner us-east-1--aws-quota-slice-0 free",
 				"releaseone owner foobar-res-0 free",
+			},
+		},
+		{
+			name: "Cluster profile lease with STS",
+			leases: []api.StepLease{{
+				ResourceType:   "aws",
+				Env:            api.DefaultLeaseEnv,
+				Count:          1,
+				ClusterProfile: "aws",
+			}},
+			resources: map[string]*common.Resource{
+				"acquireWaitWithPriority_aws_free_leased_random": {
+					Name: "us-east-1--aws-quota-slice-0",
+				},
+			},
+			objects: []ctrlruntimeclient.Object{&corev1.Secret{
+				ObjectMeta: v1.ObjectMeta{
+					Namespace: "ci",
+					Name:      "cluster-secrets-aws",
+				},
+				Data: map[string][]byte{
+					"k1": []byte("v1"),
+				},
+			}},
+			clusterProfiles: map[string]*api.ClusterProfileDetails{
+				"aws": {
+					Secret:        "cluster-secrets-aws",
+					LeaseType:     "aws-quota-slice",
+					HubRoleARN:    "arn:aws:iam::111:role/hub",
+					TargetRoleARN: "arn:aws:iam::222:role/target",
+				},
+			},
+			wantProvides: map[string]string{
+				"parameter":                       "map",
+				api.ClusterProfileSetEnv:          "",
+				api.ClusterProfileParam:           "aws",
+				api.ClusterProfileSecretNameParam: "cluster-secrets-aws",
+				api.STSHubRoleARNParam:            "arn:aws:iam::111:role/hub",
+				api.STSTargetRoleARNParam:         "arn:aws:iam::222:role/target",
+				api.DefaultLeaseEnv:               "us-east-1",
+			},
+			wantSecrets: corev1.SecretList{
+				Items: []corev1.Secret{
+					{
+						ObjectMeta: v1.ObjectMeta{
+							Namespace:       "ci",
+							Name:            "cluster-secrets-aws",
+							ResourceVersion: "999",
+						},
+						Data: map[string][]byte{
+							"k1": []byte("v1"),
+						},
+					},
+					{
+						ObjectMeta: v1.ObjectMeta{
+							Namespace:       ns,
+							Name:            "cluster-secrets-aws",
+							ResourceVersion: "1",
+						},
+						Data: map[string][]byte{
+							"k1": []byte("v1"),
+						},
+						Immutable: ptr.To(true),
+					},
+				},
+			},
+			wantCalls: []string{
+				"acquireWaitWithPriority owner aws free leased random",
+				"releaseone owner us-east-1--aws-quota-slice-0 free",
 			},
 		},
 		{
@@ -490,6 +565,8 @@ func TestAcquireLeases(t *testing.T) {
 				api.ClusterProfileSetEnv:          "aws-set",
 				api.ClusterProfileParam:           "aws",
 				api.ClusterProfileSecretNameParam: "cluster-secrets-aws",
+				api.STSHubRoleARNParam:            "",
+				api.STSTargetRoleARNParam:         "",
 				api.DefaultLeaseEnv:               "us-east-1",
 			},
 			wantSecrets: corev1.SecretList{

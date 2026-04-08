@@ -223,6 +223,31 @@ func (s *multiStageTestStep) createCommandConfigMaps(ctx context.Context) error 
 	return nil
 }
 
+func stsConfigMapName(testName string) string {
+	return fmt.Sprintf("%s-sts-config", testName)
+}
+
+func (s *multiStageTestStep) createSTSConfigMap(ctx context.Context) error {
+	logrus.Infof("Creating STS AWS config for test %q (hub=%s, target=%s)", s.name, s.stsHubRoleARN, s.stsTargetRoleARN)
+	name := stsConfigMapName(s.name)
+
+	configContent := fmt.Sprintf("[profile hub]\nweb_identity_token_file = %s/token\nrole_arn = %s\n\n[default]\nrole_arn = %s\nsource_profile = hub\n", stsTokenMountPath, s.stsHubRoleARN, s.stsTargetRoleARN)
+
+	yes := true
+	cm := &coreapi.ConfigMap{
+		ObjectMeta: meta.ObjectMeta{
+			Name:      name,
+			Namespace: s.jobSpec.Namespace(),
+		},
+		Data:      map[string]string{"config": configContent},
+		Immutable: &yes,
+	}
+	if err := s.client.Delete(ctx, cm); err != nil && !kerrors.IsNotFound(err) {
+		return fmt.Errorf("could not delete STS config configmap %s: %w", name, err)
+	}
+	return s.client.Create(ctx, cm)
+}
+
 func (s *multiStageTestStep) setupRBAC(ctx context.Context) error {
 	labels := map[string]string{MultiStageTestLabel: s.name}
 	ns := s.jobSpec.Namespace()
