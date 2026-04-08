@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -45,6 +46,132 @@ func TestArchitectureForBounds(t *testing.T) {
 			}
 			if !tt.wantErr && got != tt.want {
 				t.Errorf("architectureForBounds() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestShouldDeleteClusterImageSet(t *testing.T) {
+	bounds := api.VersionBounds{Lower: "4.18.0-0", Upper: "4.19.0-0", Stream: "4-stable"}
+	poolFilesByBounds := map[api.VersionBounds][]string{
+		bounds: {"pool.yaml"},
+	}
+	boundsToPullspec := map[api.VersionBounds]string{
+		bounds: "quay.io/openshift-release-dev/ocp-release:4.18.1-multi",
+	}
+
+	tests := []struct {
+		name          string
+		imageset      hivev1.ClusterImageSet
+		usedImageSets map[string]struct{}
+		wantDelete    bool
+		wantErr       string
+	}{
+		{
+			name: "do not delete imageset referenced by any pool",
+			imageset: hivev1.ClusterImageSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "still-in-use",
+					Annotations: map[string]string{
+						versionLowerLabel:  "4.17.0-0",
+						versionUpperLabel:  "4.18.0-0",
+						versionStreamLabel: "4-stable",
+					},
+				},
+				Spec: hivev1.ClusterImageSetSpec{ReleaseImage: "old"},
+			},
+			usedImageSets: map[string]struct{}{"still-in-use": {}},
+			wantDelete:    false,
+		},
+		{
+			name: "delete imageset when bounds are no longer referenced by pools",
+			imageset: hivev1.ClusterImageSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "unused",
+					Annotations: map[string]string{
+						versionLowerLabel:  "4.17.0-0",
+						versionUpperLabel:  "4.18.0-0",
+						versionStreamLabel: "4-stable",
+					},
+				},
+				Spec: hivev1.ClusterImageSetSpec{ReleaseImage: "old"},
+			},
+			usedImageSets: map[string]struct{}{},
+			wantDelete:    true,
+		},
+		{
+			name: "keep imageset when bounds and pullspec match",
+			imageset: hivev1.ClusterImageSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "current",
+					Annotations: map[string]string{
+						versionLowerLabel:  bounds.Lower,
+						versionUpperLabel:  bounds.Upper,
+						versionStreamLabel: bounds.Stream,
+					},
+				},
+				Spec: hivev1.ClusterImageSetSpec{ReleaseImage: boundsToPullspec[bounds]},
+			},
+			usedImageSets: map[string]struct{}{},
+			wantDelete:    false,
+		},
+		{
+			name: "delete imageset when pullspec drifts from current bounds",
+			imageset: hivev1.ClusterImageSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "drifted",
+					Annotations: map[string]string{
+						versionLowerLabel:  bounds.Lower,
+						versionUpperLabel:  bounds.Upper,
+						versionStreamLabel: bounds.Stream,
+					},
+				},
+				Spec: hivev1.ClusterImageSetSpec{ReleaseImage: "quay.io/example/old:tag"},
+			},
+			usedImageSets: map[string]struct{}{},
+			wantDelete:    true,
+		},
+		{
+			name: "do not delete imageset without version annotations",
+			imageset: hivev1.ClusterImageSet{
+				ObjectMeta: metav1.ObjectMeta{Name: "manual-imageset"},
+				Spec:       hivev1.ClusterImageSetSpec{ReleaseImage: "whatever"},
+			},
+			usedImageSets: map[string]struct{}{},
+			wantDelete:    false,
+		},
+		{
+			name: "error on malformed version annotations",
+			imageset: hivev1.ClusterImageSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "malformed",
+					Annotations: map[string]string{
+						versionUpperLabel: "4.19.0-0",
+					},
+				},
+			},
+			usedImageSets: map[string]struct{}{},
+			wantErr:       "Failed to parse version labels for clusterimageset malformed",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotDelete, err := shouldDeleteClusterImageSet(tt.imageset, tt.usedImageSets, poolFilesByBounds, boundsToPullspec)
+			if tt.wantErr == "" && err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if tt.wantErr != "" {
+				if err == nil {
+					t.Fatalf("expected error containing %q but got nil", tt.wantErr)
+				}
+				if !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("error %q does not contain expected substring %q", err.Error(), tt.wantErr)
+				}
+				return
+			}
+			if gotDelete != tt.wantDelete {
+				t.Fatalf("shouldDeleteClusterImageSet() = %v, want %v", gotDelete, tt.wantDelete)
 			}
 		})
 	}

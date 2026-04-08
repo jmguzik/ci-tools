@@ -97,6 +97,8 @@ func main() {
 
 	// key: version_in; value: list of file paths
 	poolFilesByBounds := make(map[api.VersionBounds][]string)
+	// set of ClusterImageSet names currently referenced by any ClusterPool
+	usedImageSets := make(map[string]struct{})
 	if err := filepath.WalkDir(o.poolDir, func(path string, info fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -111,6 +113,9 @@ func main() {
 		pool := hivev1.ClusterPool{}
 		if err := yaml.Unmarshal(raw, &pool); err != nil {
 			return err
+		}
+		if pool.Spec.ImageSetRef.Name != "" {
+			usedImageSets[pool.Spec.ImageSetRef.Name] = struct{}{}
 		}
 		bounds, err := labelsToBounds(pool.Labels)
 		if err != nil {
@@ -162,22 +167,12 @@ func main() {
 		if err := yaml.Unmarshal(raw, &imageset); err != nil {
 			return err
 		}
-		bounds, err := labelsToBounds(imageset.Annotations)
+		shouldDelete, err := shouldDeleteClusterImageSet(imageset, usedImageSets, poolFilesByBounds, boundsToPullspec)
 		if err != nil {
-			return fmt.Errorf("Failed to parse version labels for clusterimageset %s: %w", imageset.Name, err)
+			return err
 		}
-		if bounds != nil {
-			isCurrent := false
-			for poolBounds := range poolFilesByBounds {
-				if poolBounds == *bounds {
-					isCurrent = imageset.Spec.ReleaseImage == boundsToPullspec[poolBounds]
-					break
-				}
-			}
-			if !isCurrent {
-				toDelete = append(toDelete, path)
-				return nil
-			}
+		if shouldDelete {
+			toDelete = append(toDelete, path)
 		}
 		return nil
 	}); err != nil {
@@ -328,6 +323,24 @@ func labelsToBounds(labels map[string]string) (*api.VersionBounds, error) {
 		return &bounds, nil
 	}
 	return nil, nil
+}
+
+func shouldDeleteClusterImageSet(imageset hivev1.ClusterImageSet, usedImageSets map[string]struct{}, poolFilesByBounds map[api.VersionBounds][]string, boundsToPullspec map[api.VersionBounds]string) (bool, error) {
+	if _, isUsed := usedImageSets[imageset.Name]; isUsed {
+		return false, nil
+	}
+	bounds, err := labelsToBounds(imageset.Annotations)
+	if err != nil {
+		return false, fmt.Errorf("Failed to parse version labels for clusterimageset %s: %w", imageset.Name, err)
+	}
+	if bounds == nil {
+		return false, nil
+	}
+	_, hasMatchingPool := poolFilesByBounds[*bounds]
+	if !hasMatchingPool {
+		return true, nil
+	}
+	return imageset.Spec.ReleaseImage != boundsToPullspec[*bounds], nil
 }
 
 // architectureForBounds returns MULTI for 4.12+ and AMD64 for older versions (multi payload not available).
