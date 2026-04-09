@@ -135,10 +135,6 @@ func main() {
 		logrus.WithError(fmt.Errorf("version %s split by dot doesn't have two elements", o.CurrentRelease)).Fatal("Failed to parse the current version")
 	}
 
-	if err := secret.Add(o.GitHubOptions.TokenPath); err != nil {
-		logrus.WithError(err).Fatal("Failed to start secrets agent")
-	}
-
 	gc, err := o.GitHubOptions.GitHubClient(!o.Confirm)
 	if err != nil {
 		logrus.WithError(err).Fatal("error getting GitHub client")
@@ -189,9 +185,14 @@ func main() {
 			command: "/usr/bin/private-prow-configs-mirror",
 			arguments: func() []string {
 				args := []string{"--release-repo-path", ".",
-					"--github-token-path", "/etc/github/oauth",
 					"--github-endpoint", "http://ghproxy",
 					"--dry-run", "false"}
+				if o.GitHubOptions.TokenPath != "" {
+					args = append(args, "--github-token-path", o.GitHubOptions.TokenPath)
+				} else {
+					args = append(args, "--github-app-id", o.GitHubOptions.AppID,
+						"--github-app-private-key-path", o.GitHubOptions.AppPrivateKeyPath)
+				}
 				if o.whitelist != "" {
 					args = append(args, "--whitelist-file", o.whitelist)
 				}
@@ -252,8 +253,23 @@ func main() {
 	}
 
 	title := fmt.Sprintf("%s by auto-config-brancher job at %s", matchTitle, time.Now().Format(time.RFC1123))
-	if err := bumper.GitPush(fmt.Sprintf("https://%s:%s@github.com/%s/%s.git", o.githubLogin, string(secret.GetTokenGenerator(o.GitHubOptions.TokenPath)()), o.githubLogin, githubRepo), remoteBranch, stdout, stderr, ""); err != nil {
-		logrus.WithError(err).Fatal("Failed to push changes.")
+
+	var prHead string
+	if o.GitHubOptions.TokenPath != "" {
+		if err := secret.Add(o.GitHubOptions.TokenPath); err != nil {
+			logrus.WithError(err).Fatal("Failed to register token for censoring.")
+		}
+		pushURL := fmt.Sprintf("https://%s:%s@github.com/%s/%s.git",
+			o.githubLogin, string(secret.GetTokenGenerator(o.GitHubOptions.TokenPath)()), o.githubLogin, githubRepo)
+		if err := bumper.GitPush(pushURL, remoteBranch, stdout, stderr, ""); err != nil {
+			logrus.WithError(err).Fatal("Failed to push changes.")
+		}
+		prHead = o.githubLogin + ":" + remoteBranch
+	} else {
+		if err := pushWithGitClientFactory(o, remoteBranch); err != nil {
+			logrus.WithError(err).Fatal("Failed to push changes.")
+		}
+		prHead = remoteBranch
 	}
 
 	labelsToAdd := []string{
@@ -269,9 +285,37 @@ func main() {
 	if err != nil {
 		logrus.WithError(err).Fatalf("Error retrieving repository data: %v", err)
 	}
-	if err := bumper.UpdatePullRequestWithLabels(gc, githubOrg, githubRepo, title, fmt.Sprintf("/cc @%s", o.assign), o.githubLogin+":"+remoteBranch, repo.DefaultBranch, remoteBranch, true, labelsToAdd, false); err != nil {
+	if err := bumper.UpdatePullRequestWithLabels(gc, githubOrg, githubRepo, title, fmt.Sprintf("/cc @%s", o.assign), prHead, repo.DefaultBranch, remoteBranch, true, labelsToAdd, false); err != nil {
 		logrus.WithError(err).Fatal("PR creation failed.")
 	}
+}
+
+func pushWithGitClientFactory(o options, branch string) error {
+	gcf, err := o.GitHubOptions.GitClientFactory("", nil, !o.Confirm, false)
+	if err != nil {
+		return fmt.Errorf("error creating git client factory: %w", err)
+	}
+	defer func() {
+		if err := gcf.Clean(); err != nil {
+			logrus.WithError(err).Warn("Failed to clean git client factory cache.")
+		}
+	}()
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("error getting working directory: %w", err)
+	}
+
+	repoClient, err := gcf.ClientFromDir(githubOrg, githubRepo, cwd)
+	if err != nil {
+		return fmt.Errorf("error creating repo client: %w", err)
+	}
+
+	if out, err := exec.Command("git", "checkout", "-B", branch).CombinedOutput(); err != nil {
+		return fmt.Errorf("error creating local branch %s: %w\n%s", branch, err, string(out))
+	}
+
+	return repoClient.PushToCentral(branch, true)
 }
 
 func runSteps(steps []step, author string, stdout, stderr io.Writer) (needsPushing bool, err error) {
