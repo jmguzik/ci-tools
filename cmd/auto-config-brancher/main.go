@@ -16,8 +16,10 @@ import (
 	"sigs.k8s.io/prow/cmd/generic-autobumper/bumper"
 	"sigs.k8s.io/prow/pkg/config/secret"
 	"sigs.k8s.io/prow/pkg/flagutil"
+	"sigs.k8s.io/prow/pkg/github"
 	"sigs.k8s.io/prow/pkg/labels"
 
+	"github.com/openshift/ci-tools/pkg/github/prcreation"
 	"github.com/openshift/ci-tools/pkg/promotion"
 	"github.com/openshift/ci-tools/pkg/rehearse"
 )
@@ -285,7 +287,9 @@ func main() {
 	if err != nil {
 		logrus.WithError(err).Fatalf("Error retrieving repository data: %v", err)
 	}
-	if err := bumper.UpdatePullRequestWithLabels(gc, githubOrg, githubRepo, title, fmt.Sprintf("/cc @%s", o.assign), prHead, repo.DefaultBranch, remoteBranch, true, labelsToAdd, false); err != nil {
+	isAppAuth := o.GitHubOptions.TokenPath == ""
+	prClient := github.Client(&prcreation.OrgAwareClient{Client: gc, Org: githubOrg, IsAppAuth: isAppAuth})
+	if err := bumper.UpdatePullRequestWithLabels(prClient, githubOrg, githubRepo, title, fmt.Sprintf("/cc @%s", o.assign), prHead, repo.DefaultBranch, remoteBranch, true, labelsToAdd, false); err != nil {
 		logrus.WithError(err).Fatal("PR creation failed.")
 	}
 }
