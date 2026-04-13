@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/bombsimon/logrusr/v3"
 	"github.com/sirupsen/logrus"
 
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/rest"
+	controllerruntime "sigs.k8s.io/controller-runtime"
 	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	fakectrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	v1 "sigs.k8s.io/prow/pkg/apis/prowjobs/v1"
@@ -57,6 +59,8 @@ func validateOptions(o options) error {
 }
 
 func main() {
+	controllerruntime.SetLogger(logrusr.New(logrus.StandardLogger()))
+
 	o, err := gatherOptions()
 	if err != nil {
 		logrus.WithError(err).Fatal("Failed to gather options")
