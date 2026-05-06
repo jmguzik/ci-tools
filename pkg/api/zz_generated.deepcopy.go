@@ -5,7 +5,7 @@
 package api
 
 import (
-	v1 "github.com/openshift/api/image/v1"
+	"github.com/openshift/api/image/v1"
 	prowjobsv1 "sigs.k8s.io/prow/pkg/apis/prowjobs/v1"
 	"sigs.k8s.io/prow/pkg/config"
 )
