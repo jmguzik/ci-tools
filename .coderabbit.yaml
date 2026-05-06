@@ -7,6 +7,18 @@ reviews:
   profile: chill
   request_changes_workflow: false
   high_level_summary: true
+  high_level_summary_instructions: |
+    This repository contains tooling used in OpenShift CI (https://docs.ci.openshift.org/).
+    Key components:
+    - ci-operator: the CI test executor that runs in every CI job
+    - Controllers and services deployed to CI clusters
+    - CLI tools for CI infrastructure management
+    - Configuration loading, processing, and generation for Prow jobs
+
+    When summarizing:
+    - Explain what the PR changes in practical terms for CI users or operators
+    - Mention which component is affected and how its behavior changes
+    - Don't just list modified files or describe diffs mechanically
   poem: false
   sequence_diagrams: false
   collapse_walkthrough: true
