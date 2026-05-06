@@ -102,7 +102,7 @@ func main() {
 	normalizedProfiles := profiles.DeepCopy()
 	normalize(*normalizedProfiles)
 
-	if diff := cmp.Diff(profiles, normalizedProfiles); diff != "" {
+	if diff := cmp.Diff(&profiles, normalizedProfiles); diff != "" {
 		fmt.Print(diff)
 		logger.Fatal("\nProfiles have not been normalized, run `make check-cluster-profiles`")
 	}
