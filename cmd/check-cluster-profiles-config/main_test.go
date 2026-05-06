@@ -24,41 +24,47 @@ func TestValidate(t *testing.T) {
 		{
 			name: "Valid config file",
 			profiles: api.ClusterProfilesList{
-				api.ClusterProfileDetails{
-					Profile: "aws",
-					Owners:  []api.ClusterProfileOwners{{Org: "aws", Repos: []string{"repo1"}}},
+				ClusterProfiles: []api.ClusterProfileDetails{
+					{
+						Name:   "aws",
+						Owners: []api.ClusterProfileOwners{{Org: "aws", Repos: []string{"repo1"}}},
+					},
+					{
+						Name:   "gcp",
+						Owners: []api.ClusterProfileOwners{{Org: "gcp-org"}},
+					},
+					{Name: "aws2"},
 				},
-				api.ClusterProfileDetails{
-					Profile: "gcp",
-					Owners:  []api.ClusterProfileOwners{{Org: "gcp-org"}},
-				},
-				api.ClusterProfileDetails{Profile: "aws2"},
 			},
 		},
 		{
 			name: "Duplicated profile in config file",
 			profiles: api.ClusterProfilesList{
-				api.ClusterProfileDetails{
-					Profile: "aws",
-					Owners:  []api.ClusterProfileOwners{{Org: "aws", Repos: []string{"repo1"}}},
+				ClusterProfiles: []api.ClusterProfileDetails{
+					{
+						Name:   "aws",
+						Owners: []api.ClusterProfileOwners{{Org: "aws", Repos: []string{"repo1"}}},
+					},
+					{
+						Name:   "gcp",
+						Owners: []api.ClusterProfileOwners{{Org: "gcp-org"}},
+					},
+					{Name: "aws"},
+					{Name: "gcp2"},
 				},
-				api.ClusterProfileDetails{
-					Profile: "gcp",
-					Owners:  []api.ClusterProfileOwners{{Org: "gcp-org"}},
-				},
-				api.ClusterProfileDetails{Profile: "aws"},
-				api.ClusterProfileDetails{Profile: "gcp2"},
 			},
 			expected: fmt.Errorf("cluster profile 'aws' already exists in the configuration file"),
 		},
 		{
 			name: "Duplicated org within profile",
 			profiles: api.ClusterProfilesList{
-				api.ClusterProfileDetails{
-					Profile: "aws",
-					Owners: []api.ClusterProfileOwners{
-						{Org: "aws", Repos: []string{"repo1"}},
-						{Org: "aws", Repos: []string{"repo2"}},
+				ClusterProfiles: []api.ClusterProfileDetails{
+					{
+						Name: "aws",
+						Owners: []api.ClusterProfileOwners{
+							{Org: "aws", Repos: []string{"repo1"}},
+							{Org: "aws", Repos: []string{"repo2"}},
+						},
 					},
 				},
 			},
@@ -67,9 +73,11 @@ func TestValidate(t *testing.T) {
 		{
 			name: "Invalid owner",
 			profiles: api.ClusterProfilesList{
-				api.ClusterProfileDetails{
-					Profile: "aws",
-					Owners:  []api.ClusterProfileOwners{{}},
+				ClusterProfiles: []api.ClusterProfileDetails{
+					{
+						Name:   "aws",
+						Owners: []api.ClusterProfileOwners{{}},
+					},
 				},
 			},
 			expected: fmt.Errorf(`cluster profile 'aws' has an invalid owner`),
@@ -77,12 +85,14 @@ func TestValidate(t *testing.T) {
 		{
 			name: "Konflux and org mutually exclusive",
 			profiles: api.ClusterProfilesList{
-				api.ClusterProfileDetails{
-					Profile: "aws",
-					Owners: []api.ClusterProfileOwners{{
-						Org:     "openshift",
-						Konflux: &api.ClusterProfileKonfluxOwner{Tenant: "openshift"},
-					}},
+				ClusterProfiles: []api.ClusterProfileDetails{
+					{
+						Name: "aws",
+						Owners: []api.ClusterProfileOwners{{
+							Org:     "openshift",
+							Konflux: &api.ClusterProfileKonfluxOwner{Tenant: "openshift"},
+						}},
+					},
 				},
 			},
 			expected: fmt.Errorf(`cluster profile 'aws' has both org and tenant set`),
@@ -116,36 +126,48 @@ func TestNormalize(t *testing.T) {
 		{
 			name: "Profile with nil owners",
 			profiles: api.ClusterProfilesList{
-				{Profile: "aws", Secret: "aws-secret", Owners: nil},
+				ClusterProfiles: []api.ClusterProfileDetails{
+					{Name: "aws", Secret: "aws-secret", Owners: nil},
+				},
 			},
 			wantProfiles: api.ClusterProfilesList{
-				{Profile: "aws", Secret: "aws-secret", Owners: nil},
+				ClusterProfiles: []api.ClusterProfileDetails{
+					{Name: "aws", Secret: "aws-secret", Owners: nil},
+				},
 			},
 		},
 		{
 			name: "Profile with empty owners slice",
 			profiles: api.ClusterProfilesList{
-				{Profile: "aws", Secret: "aws-secret", Owners: []api.ClusterProfileOwners{}},
+				ClusterProfiles: []api.ClusterProfileDetails{
+					{Name: "aws", Secret: "aws-secret", Owners: []api.ClusterProfileOwners{}},
+				},
 			},
 			wantProfiles: api.ClusterProfilesList{
-				{Profile: "aws", Secret: "aws-secret", Owners: []api.ClusterProfileOwners{}},
+				ClusterProfiles: []api.ClusterProfileDetails{
+					{Name: "aws", Secret: "aws-secret", Owners: []api.ClusterProfileOwners{}},
+				},
 			},
 		},
 		{
 			name: "Owner with nil repos",
 			profiles: api.ClusterProfilesList{
-				{
-					Profile: "aws",
-					Owners: []api.ClusterProfileOwners{
-						{Org: "openshift", Repos: nil},
+				ClusterProfiles: []api.ClusterProfileDetails{
+					{
+						Name: "aws",
+						Owners: []api.ClusterProfileOwners{
+							{Org: "openshift", Repos: nil},
+						},
 					},
 				},
 			},
 			wantProfiles: api.ClusterProfilesList{
-				{
-					Profile: "aws",
-					Owners: []api.ClusterProfileOwners{
-						{Org: "openshift", Repos: nil},
+				ClusterProfiles: []api.ClusterProfileDetails{
+					{
+						Name: "aws",
+						Owners: []api.ClusterProfileOwners{
+							{Org: "openshift", Repos: nil},
+						},
 					},
 				},
 			},
@@ -153,18 +175,22 @@ func TestNormalize(t *testing.T) {
 		{
 			name: "Owner with empty repos slice",
 			profiles: api.ClusterProfilesList{
-				{
-					Profile: "aws",
-					Owners: []api.ClusterProfileOwners{
-						{Org: "openshift", Repos: []string{}},
+				ClusterProfiles: []api.ClusterProfileDetails{
+					{
+						Name: "aws",
+						Owners: []api.ClusterProfileOwners{
+							{Org: "openshift", Repos: []string{}},
+						},
 					},
 				},
 			},
 			wantProfiles: api.ClusterProfilesList{
-				{
-					Profile: "aws",
-					Owners: []api.ClusterProfileOwners{
-						{Org: "openshift", Repos: []string{}},
+				ClusterProfiles: []api.ClusterProfileDetails{
+					{
+						Name: "aws",
+						Owners: []api.ClusterProfileOwners{
+							{Org: "openshift", Repos: []string{}},
+						},
 					},
 				},
 			},
@@ -172,20 +198,24 @@ func TestNormalize(t *testing.T) {
 		{
 			name: "Mix of nil and empty repos",
 			profiles: api.ClusterProfilesList{
-				{
-					Profile: "aws",
-					Owners: []api.ClusterProfileOwners{
-						{Org: "openshift", Repos: nil},
-						{Org: "redhat-developer", Repos: []string{}},
+				ClusterProfiles: []api.ClusterProfileDetails{
+					{
+						Name: "aws",
+						Owners: []api.ClusterProfileOwners{
+							{Org: "openshift", Repos: nil},
+							{Org: "redhat-developer", Repos: []string{}},
+						},
 					},
 				},
 			},
 			wantProfiles: api.ClusterProfilesList{
-				{
-					Profile: "aws",
-					Owners: []api.ClusterProfileOwners{
-						{Org: "openshift", Repos: nil},
-						{Org: "redhat-developer", Repos: []string{}},
+				ClusterProfiles: []api.ClusterProfileDetails{
+					{
+						Name: "aws",
+						Owners: []api.ClusterProfileOwners{
+							{Org: "openshift", Repos: nil},
+							{Org: "redhat-developer", Repos: []string{}},
+						},
 					},
 				},
 			},
@@ -193,22 +223,26 @@ func TestNormalize(t *testing.T) {
 		{
 			name: "All owners with nil repos",
 			profiles: api.ClusterProfilesList{
-				{
-					Profile: "aws",
-					Owners: []api.ClusterProfileOwners{
-						{Org: "redhat-developer", Repos: nil},
-						{Org: "ComplianceAsCode", Repos: nil},
-						{Org: "openshift", Repos: nil},
+				ClusterProfiles: []api.ClusterProfileDetails{
+					{
+						Name: "aws",
+						Owners: []api.ClusterProfileOwners{
+							{Org: "redhat-developer", Repos: nil},
+							{Org: "ComplianceAsCode", Repos: nil},
+							{Org: "openshift", Repos: nil},
+						},
 					},
 				},
 			},
 			wantProfiles: api.ClusterProfilesList{
-				{
-					Profile: "aws",
-					Owners: []api.ClusterProfileOwners{
-						{Org: "ComplianceAsCode", Repos: nil},
-						{Org: "openshift", Repos: nil},
-						{Org: "redhat-developer", Repos: nil},
+				ClusterProfiles: []api.ClusterProfileDetails{
+					{
+						Name: "aws",
+						Owners: []api.ClusterProfileOwners{
+							{Org: "ComplianceAsCode", Repos: nil},
+							{Org: "openshift", Repos: nil},
+							{Org: "redhat-developer", Repos: nil},
+						},
 					},
 				},
 			},
@@ -216,18 +250,22 @@ func TestNormalize(t *testing.T) {
 		{
 			name: "Profile with unsorted repos",
 			profiles: api.ClusterProfilesList{
-				{
-					Profile: "aws",
-					Owners: []api.ClusterProfileOwners{
-						{Org: "openshift", Repos: []string{"origin", "api", "installer"}},
+				ClusterProfiles: []api.ClusterProfileDetails{
+					{
+						Name: "aws",
+						Owners: []api.ClusterProfileOwners{
+							{Org: "openshift", Repos: []string{"origin", "api", "installer"}},
+						},
 					},
 				},
 			},
 			wantProfiles: api.ClusterProfilesList{
-				{
-					Profile: "aws",
-					Owners: []api.ClusterProfileOwners{
-						{Org: "openshift", Repos: []string{"api", "installer", "origin"}},
+				ClusterProfiles: []api.ClusterProfileDetails{
+					{
+						Name: "aws",
+						Owners: []api.ClusterProfileOwners{
+							{Org: "openshift", Repos: []string{"api", "installer", "origin"}},
+						},
 					},
 				},
 			},
@@ -235,20 +273,24 @@ func TestNormalize(t *testing.T) {
 		{
 			name: "Profile with unsorted orgs",
 			profiles: api.ClusterProfilesList{
-				{
-					Profile: "aws",
-					Owners: []api.ClusterProfileOwners{
-						{Org: "redhat-developer", Repos: []string{"kam"}},
-						{Org: "openshift", Repos: []string{"api"}},
+				ClusterProfiles: []api.ClusterProfileDetails{
+					{
+						Name: "aws",
+						Owners: []api.ClusterProfileOwners{
+							{Org: "redhat-developer", Repos: []string{"kam"}},
+							{Org: "openshift", Repos: []string{"api"}},
+						},
 					},
 				},
 			},
 			wantProfiles: api.ClusterProfilesList{
-				{
-					Profile: "aws",
-					Owners: []api.ClusterProfileOwners{
-						{Org: "openshift", Repos: []string{"api"}},
-						{Org: "redhat-developer", Repos: []string{"kam"}},
+				ClusterProfiles: []api.ClusterProfileDetails{
+					{
+						Name: "aws",
+						Owners: []api.ClusterProfileOwners{
+							{Org: "openshift", Repos: []string{"api"}},
+							{Org: "redhat-developer", Repos: []string{"kam"}},
+						},
 					},
 				},
 			},
@@ -256,20 +298,24 @@ func TestNormalize(t *testing.T) {
 		{
 			name: "Profile with already sorted owners and repos",
 			profiles: api.ClusterProfilesList{
-				{
-					Profile: "aws",
-					Owners: []api.ClusterProfileOwners{
-						{Org: "openshift", Repos: []string{"api", "installer", "origin"}},
-						{Org: "redhat-developer", Repos: []string{"gitops-operator", "kam"}},
+				ClusterProfiles: []api.ClusterProfileDetails{
+					{
+						Name: "aws",
+						Owners: []api.ClusterProfileOwners{
+							{Org: "openshift", Repos: []string{"api", "installer", "origin"}},
+							{Org: "redhat-developer", Repos: []string{"gitops-operator", "kam"}},
+						},
 					},
 				},
 			},
 			wantProfiles: api.ClusterProfilesList{
-				{
-					Profile: "aws",
-					Owners: []api.ClusterProfileOwners{
-						{Org: "openshift", Repos: []string{"api", "installer", "origin"}},
-						{Org: "redhat-developer", Repos: []string{"gitops-operator", "kam"}},
+				ClusterProfiles: []api.ClusterProfileDetails{
+					{
+						Name: "aws",
+						Owners: []api.ClusterProfileOwners{
+							{Org: "openshift", Repos: []string{"api", "installer", "origin"}},
+							{Org: "redhat-developer", Repos: []string{"gitops-operator", "kam"}},
+						},
 					},
 				},
 			},
@@ -277,20 +323,24 @@ func TestNormalize(t *testing.T) {
 		{
 			name: "Profile with different orgs - sorts orgs alphabetically",
 			profiles: api.ClusterProfilesList{
-				{
-					Profile: "aws",
-					Owners: []api.ClusterProfileOwners{
-						{Org: "redhat-developer", Repos: []string{"installer", "api"}},
-						{Org: "openshift", Repos: []string{"origin", "cli"}},
+				ClusterProfiles: []api.ClusterProfileDetails{
+					{
+						Name: "aws",
+						Owners: []api.ClusterProfileOwners{
+							{Org: "redhat-developer", Repos: []string{"installer", "api"}},
+							{Org: "openshift", Repos: []string{"origin", "cli"}},
+						},
 					},
 				},
 			},
 			wantProfiles: api.ClusterProfilesList{
-				{
-					Profile: "aws",
-					Owners: []api.ClusterProfileOwners{
-						{Org: "openshift", Repos: []string{"cli", "origin"}},
-						{Org: "redhat-developer", Repos: []string{"api", "installer"}},
+				ClusterProfiles: []api.ClusterProfileDetails{
+					{
+						Name: "aws",
+						Owners: []api.ClusterProfileOwners{
+							{Org: "openshift", Repos: []string{"cli", "origin"}},
+							{Org: "redhat-developer", Repos: []string{"api", "installer"}},
+						},
 					},
 				},
 			},
@@ -298,24 +348,28 @@ func TestNormalize(t *testing.T) {
 		{
 			name: "Case-sensitive org sorting",
 			profiles: api.ClusterProfilesList{
-				{
-					Profile: "aws",
-					Owners: []api.ClusterProfileOwners{
-						{Org: "openshift", Repos: []string{"api"}},
-						{Org: "ComplianceAsCode", Repos: []string{"content"}},
-						{Org: "AWS-Org", Repos: []string{"repo1"}},
-						{Org: "azure-org", Repos: []string{"repo2"}},
+				ClusterProfiles: []api.ClusterProfileDetails{
+					{
+						Name: "aws",
+						Owners: []api.ClusterProfileOwners{
+							{Org: "openshift", Repos: []string{"api"}},
+							{Org: "ComplianceAsCode", Repos: []string{"content"}},
+							{Org: "AWS-Org", Repos: []string{"repo1"}},
+							{Org: "azure-org", Repos: []string{"repo2"}},
+						},
 					},
 				},
 			},
 			wantProfiles: api.ClusterProfilesList{
-				{
-					Profile: "aws",
-					Owners: []api.ClusterProfileOwners{
-						{Org: "AWS-Org", Repos: []string{"repo1"}},
-						{Org: "ComplianceAsCode", Repos: []string{"content"}},
-						{Org: "azure-org", Repos: []string{"repo2"}},
-						{Org: "openshift", Repos: []string{"api"}},
+				ClusterProfiles: []api.ClusterProfileDetails{
+					{
+						Name: "aws",
+						Owners: []api.ClusterProfileOwners{
+							{Org: "AWS-Org", Repos: []string{"repo1"}},
+							{Org: "ComplianceAsCode", Repos: []string{"content"}},
+							{Org: "azure-org", Repos: []string{"repo2"}},
+							{Org: "openshift", Repos: []string{"api"}},
+						},
 					},
 				},
 			},
@@ -323,34 +377,38 @@ func TestNormalize(t *testing.T) {
 		{
 			name: "Multiple profiles - sorts each independently",
 			profiles: api.ClusterProfilesList{
-				{
-					Profile: "aws",
-					Owners: []api.ClusterProfileOwners{
-						{Org: "redhat-developer", Repos: []string{"kam", "gitops-operator"}},
-						{Org: "openshift", Repos: []string{"origin", "api"}},
+				ClusterProfiles: []api.ClusterProfileDetails{
+					{
+						Name: "aws",
+						Owners: []api.ClusterProfileOwners{
+							{Org: "redhat-developer", Repos: []string{"kam", "gitops-operator"}},
+							{Org: "openshift", Repos: []string{"origin", "api"}},
+						},
 					},
-				},
-				{
-					Profile: "gcp",
-					Owners: []api.ClusterProfileOwners{
-						{Org: "redhat-developer", Repos: []string{"cli"}},
-						{Org: "openshift", Repos: []string{"installer"}},
+					{
+						Name: "gcp",
+						Owners: []api.ClusterProfileOwners{
+							{Org: "redhat-developer", Repos: []string{"cli"}},
+							{Org: "openshift", Repos: []string{"installer"}},
+						},
 					},
 				},
 			},
 			wantProfiles: api.ClusterProfilesList{
-				{
-					Profile: "aws",
-					Owners: []api.ClusterProfileOwners{
-						{Org: "openshift", Repos: []string{"api", "origin"}},
-						{Org: "redhat-developer", Repos: []string{"gitops-operator", "kam"}},
+				ClusterProfiles: []api.ClusterProfileDetails{
+					{
+						Name: "aws",
+						Owners: []api.ClusterProfileOwners{
+							{Org: "openshift", Repos: []string{"api", "origin"}},
+							{Org: "redhat-developer", Repos: []string{"gitops-operator", "kam"}},
+						},
 					},
-				},
-				{
-					Profile: "gcp",
-					Owners: []api.ClusterProfileOwners{
-						{Org: "openshift", Repos: []string{"installer"}},
-						{Org: "redhat-developer", Repos: []string{"cli"}},
+					{
+						Name: "gcp",
+						Owners: []api.ClusterProfileOwners{
+							{Org: "openshift", Repos: []string{"installer"}},
+							{Org: "redhat-developer", Repos: []string{"cli"}},
+						},
 					},
 				},
 			},
@@ -358,18 +416,22 @@ func TestNormalize(t *testing.T) {
 		{
 			name: "Single org with single repo",
 			profiles: api.ClusterProfilesList{
-				{
-					Profile: "aws",
-					Owners: []api.ClusterProfileOwners{
-						{Org: "openshift", Repos: []string{"api"}},
+				ClusterProfiles: []api.ClusterProfileDetails{
+					{
+						Name: "aws",
+						Owners: []api.ClusterProfileOwners{
+							{Org: "openshift", Repos: []string{"api"}},
+						},
 					},
 				},
 			},
 			wantProfiles: api.ClusterProfilesList{
-				{
-					Profile: "aws",
-					Owners: []api.ClusterProfileOwners{
-						{Org: "openshift", Repos: []string{"api"}},
+				ClusterProfiles: []api.ClusterProfileDetails{
+					{
+						Name: "aws",
+						Owners: []api.ClusterProfileOwners{
+							{Org: "openshift", Repos: []string{"api"}},
+						},
 					},
 				},
 			},
@@ -377,24 +439,28 @@ func TestNormalize(t *testing.T) {
 		{
 			name: "Complex: unsorted orgs and repos, with duplicates",
 			profiles: api.ClusterProfilesList{
-				{
-					Profile: "aws",
-					Owners: []api.ClusterProfileOwners{
-						{Org: "redhat-developer", Repos: []string{"kam", "gitops-operator"}},
-						{Org: "ComplianceAsCode", Repos: []string{"ocp4e2e", "content"}},
-						{Org: "openshift", Repos: []string{"origin", "installer"}},
-						{Org: "azure-org", Repos: []string{"repo2", "repo1"}},
+				ClusterProfiles: []api.ClusterProfileDetails{
+					{
+						Name: "aws",
+						Owners: []api.ClusterProfileOwners{
+							{Org: "redhat-developer", Repos: []string{"kam", "gitops-operator"}},
+							{Org: "ComplianceAsCode", Repos: []string{"ocp4e2e", "content"}},
+							{Org: "openshift", Repos: []string{"origin", "installer"}},
+							{Org: "azure-org", Repos: []string{"repo2", "repo1"}},
+						},
 					},
 				},
 			},
 			wantProfiles: api.ClusterProfilesList{
-				{
-					Profile: "aws",
-					Owners: []api.ClusterProfileOwners{
-						{Org: "ComplianceAsCode", Repos: []string{"content", "ocp4e2e"}},
-						{Org: "azure-org", Repos: []string{"repo1", "repo2"}},
-						{Org: "openshift", Repos: []string{"installer", "origin"}},
-						{Org: "redhat-developer", Repos: []string{"gitops-operator", "kam"}},
+				ClusterProfiles: []api.ClusterProfileDetails{
+					{
+						Name: "aws",
+						Owners: []api.ClusterProfileOwners{
+							{Org: "ComplianceAsCode", Repos: []string{"content", "ocp4e2e"}},
+							{Org: "azure-org", Repos: []string{"repo1", "repo2"}},
+							{Org: "openshift", Repos: []string{"installer", "origin"}},
+							{Org: "redhat-developer", Repos: []string{"gitops-operator", "kam"}},
+						},
 					},
 				},
 			},
@@ -406,9 +472,9 @@ func TestNormalize(t *testing.T) {
 			t.Parallel()
 
 			gotProfiles := tc.profiles.DeepCopy()
-			normalize(gotProfiles)
+			normalize(*gotProfiles)
 
-			if diff := cmp.Diff(tc.wantProfiles, gotProfiles); diff != "" {
+			if diff := cmp.Diff(tc.wantProfiles, *gotProfiles); diff != "" {
 				t.Errorf("normalized result differs from expected (-want +got):\n%s", diff)
 			}
 		})

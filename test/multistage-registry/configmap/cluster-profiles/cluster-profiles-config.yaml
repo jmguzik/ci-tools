@@ -1,3 +1,4 @@
-- profile: odf-aws
+cluster_profiles:
+- name: odf-aws
   owners:
     - org: red-hat-storage

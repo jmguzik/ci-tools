@@ -6,8 +6,6 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/google/go-cmp/cmp"
-
-	kyaml "sigs.k8s.io/yaml"
 )
 
 func TestOverlay(t *testing.T) {
@@ -348,99 +346,18 @@ func TestInputImageTagStepConfiguration(t *testing.T) {
 	}
 }
 
-func TestUnmarshalClusterProfilesList(t *testing.T) {
-	t.Parallel()
-	for _, tc := range []struct {
-		name                   string
-		data                   string
-		wantClusterProfileList ClusterProfilesList
-	}{
-		{
-			name: "Unmarshal legacy schema",
-			data: `
-- profile: aws
-  owners:
-  - org: 3scale
-    repos:
-    - 3scale-operator
-`,
-			wantClusterProfileList: ClusterProfilesList{{
-				Profile: "aws",
-				Owners: []ClusterProfileOwners{{
-					Org:   "3scale",
-					Repos: []string{"3scale-operator"},
-				}},
-			}},
-		},
-		{
-			name: "Unmarshal new schema",
-			data: `
-konflux:
-  cluster_groups:
-    konflux_prod:
-    - rh01
-
-cluster_profiles:
-- profile: aws
-  owners:
-  - org: 3scale
-    repos:
-    - 3scale-operator
-- name: aws-2
-  owners:
-  - konflux:
-      tenant: konflux-ui
-      clusters:
-      - dev
-      cluster_groups:
-      - konflux_prod
-`,
-			wantClusterProfileList: ClusterProfilesList{{
-				Profile: "aws",
-				Owners: []ClusterProfileOwners{{
-					Org:   "3scale",
-					Repos: []string{"3scale-operator"},
-				}},
-			}, {
-				Name:    "aws-2",
-				Profile: "aws-2",
-				Owners: []ClusterProfileOwners{{
-					Konflux: &ClusterProfileKonfluxOwner{
-						Tenant:        "konflux-ui",
-						ClusterGroups: []string{"konflux_prod"},
-						Clusters:      []string{"dev", "rh01"},
-					},
-				}},
-			}},
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			gotClusterProfileList := &ClusterProfilesList{}
-			if err := kyaml.Unmarshal([]byte(tc.data), gotClusterProfileList); err != nil {
-				t.Fatalf("unmarshal: %s", err)
-			}
-
-			if diff := cmp.Diff(tc.wantClusterProfileList, *gotClusterProfileList); diff != "" {
-				t.Errorf("unexpected profiles: %s", diff)
-			}
-		})
-	}
-}
-
 func TestResolveClusterProfileList(t *testing.T) {
 	t.Parallel()
 
 	for _, tc := range []struct {
 		name         string
-		profiles     clusterProfilesList2
-		wantProfiles clusterProfilesList2
+		profiles     ClusterProfilesList
+		wantProfiles ClusterProfilesList
 		wantErr      string
 	}{
 		{
 			name: "Resolve cluster groups",
-			profiles: clusterProfilesList2{
+			profiles: ClusterProfilesList{
 				KonfluxConfig: &ClusterProfileKonfluxConfig{
 					ClusterGroups: map[string][]string{
 						"prod": {"prod_1"},
@@ -448,7 +365,7 @@ func TestResolveClusterProfileList(t *testing.T) {
 					},
 				},
 				ClusterProfiles: []ClusterProfileDetails{{
-					Profile: "aws",
+					Name: "aws",
 					Owners: []ClusterProfileOwners{{
 						Konflux: &ClusterProfileKonfluxOwner{
 							Tenant:        "knflx-tenant",
@@ -457,7 +374,7 @@ func TestResolveClusterProfileList(t *testing.T) {
 						},
 					}},
 				}, {
-					Profile: "aws-2",
+					Name: "aws-2",
 					Owners: []ClusterProfileOwners{{
 						Konflux: &ClusterProfileKonfluxOwner{
 							Tenant:   "knflx-tenant-2",
@@ -466,7 +383,7 @@ func TestResolveClusterProfileList(t *testing.T) {
 					}},
 				}},
 			},
-			wantProfiles: clusterProfilesList2{
+			wantProfiles: ClusterProfilesList{
 				KonfluxConfig: &ClusterProfileKonfluxConfig{
 					ClusterGroups: map[string][]string{
 						"prod": {"prod_1"},
@@ -474,7 +391,7 @@ func TestResolveClusterProfileList(t *testing.T) {
 					},
 				},
 				ClusterProfiles: []ClusterProfileDetails{{
-					Profile: "aws",
+					Name: "aws",
 					Owners: []ClusterProfileOwners{{
 						Konflux: &ClusterProfileKonfluxOwner{
 							Tenant:        "knflx-tenant",
@@ -483,7 +400,7 @@ func TestResolveClusterProfileList(t *testing.T) {
 						},
 					}},
 				}, {
-					Profile: "aws-2",
+					Name: "aws-2",
 					Owners: []ClusterProfileOwners{{
 						Konflux: &ClusterProfileKonfluxOwner{
 							Tenant:   "knflx-tenant-2",
@@ -494,25 +411,10 @@ func TestResolveClusterProfileList(t *testing.T) {
 			},
 		},
 		{
-			name: "Override profile when name is set",
-			profiles: clusterProfilesList2{
-				ClusterProfiles: []ClusterProfileDetails{{
-					Name:    "aws",
-					Profile: "foo",
-				}},
-			},
-			wantProfiles: clusterProfilesList2{
-				ClusterProfiles: []ClusterProfileDetails{{
-					Name:    "aws",
-					Profile: "aws",
-				}},
-			},
-		},
-		{
 			name: "Cluster group does not exist",
-			profiles: clusterProfilesList2{
+			profiles: ClusterProfilesList{
 				ClusterProfiles: []ClusterProfileDetails{{
-					Profile: "aws",
+					Name: "aws",
 					Owners: []ClusterProfileOwners{{
 						Konflux: &ClusterProfileKonfluxOwner{
 							Tenant:        "knflx-tenant",

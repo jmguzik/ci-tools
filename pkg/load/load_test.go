@@ -271,7 +271,7 @@ func TestClusterProfilesConfig(t *testing.T) {
 	existingProfiles := make(api.ClusterProfilesMap)
 	for _, profileName := range api.ClusterProfiles() {
 		existingProfiles[profileName] = api.ClusterProfileDetails{
-			Profile:     profileName,
+			Name:        profileName,
 			ClusterType: profileName.ClusterType(),
 			LeaseType:   profileName.LeaseType(),
 			Secret:      api.GetDefaultClusterProfileSecretName(profileName),
@@ -283,7 +283,7 @@ func TestClusterProfilesConfig(t *testing.T) {
 		switch profileName {
 		case "aws":
 			profilesWithOwners[profileName] = api.ClusterProfileDetails{
-				Profile:     profileName,
+				Name:        profileName,
 				Owners:      []api.ClusterProfileOwners{{Org: "org1"}},
 				ClusterType: profileName.ClusterType(),
 				LeaseType:   profileName.LeaseType(),
@@ -291,7 +291,7 @@ func TestClusterProfilesConfig(t *testing.T) {
 			}
 		case "aws-2":
 			profilesWithOwners[profileName] = api.ClusterProfileDetails{
-				Profile:     profileName,
+				Name:        profileName,
 				Owners:      []api.ClusterProfileOwners{{Org: "org2", Repos: []string{"repo1", "repo2"}}},
 				ClusterType: profileName.ClusterType(),
 				LeaseType:   profileName.LeaseType(),
@@ -299,7 +299,7 @@ func TestClusterProfilesConfig(t *testing.T) {
 			}
 		default:
 			profilesWithOwners[profileName] = api.ClusterProfileDetails{
-				Profile:     profileName,
+				Name:        profileName,
 				ClusterType: profileName.ClusterType(),
 				LeaseType:   profileName.LeaseType(),
 				Secret:      api.GetDefaultClusterProfileSecretName(profileName),
@@ -312,7 +312,7 @@ func TestClusterProfilesConfig(t *testing.T) {
 		switch profileName {
 		case "aws-2":
 			profilesWithSecrets[profileName] = api.ClusterProfileDetails{
-				Profile:     profileName,
+				Name:        profileName,
 				Owners:      []api.ClusterProfileOwners{{Org: "org2", Repos: []string{"repo1", "repo2"}}},
 				ClusterType: profileName.ClusterType(),
 				LeaseType:   profileName.LeaseType(),
@@ -320,14 +320,14 @@ func TestClusterProfilesConfig(t *testing.T) {
 			}
 		case "vsphere-connected-2":
 			profilesWithSecrets[profileName] = api.ClusterProfileDetails{
-				Profile:     profileName,
+				Name:        profileName,
 				ClusterType: profileName.ClusterType(),
 				LeaseType:   profileName.LeaseType(),
 				Secret:      "non-default-secret-name-vsphere",
 			}
 		default:
 			profilesWithSecrets[profileName] = api.ClusterProfileDetails{
-				Profile:     profileName,
+				Name:        profileName,
 				ClusterType: profileName.ClusterType(),
 				LeaseType:   profileName.LeaseType(),
 				Secret:      api.GetDefaultClusterProfileSecretName(profileName),
@@ -348,39 +348,42 @@ func TestClusterProfilesConfig(t *testing.T) {
 		{
 			name: "profilesWithOwners",
 			testYaml: `
-        - profile: aws
-          owners:
-            - org: org1
-        - profile: aws-2
-          owners:
-            - org: org2
-              repos:
-                - repo1
-                - repo2
-    `,
+cluster_profiles:
+- name: aws
+  owners:
+  - org: org1
+- name: aws-2
+  owners:
+  - org: org2
+    repos:
+    - repo1
+    - repo2
+`,
 			expected: profilesWithOwners,
 		},
 		{
 			name: "profilesButNoOwners",
 			testYaml: `
-        - profile: aws
-        - profile: aws-2
-    `,
+cluster_profiles:
+- name: aws
+- name: aws-2
+`,
 			expected: existingProfiles,
 		},
 		{
 			name: "profiles with owners and secrets",
 			testYaml: `
-        - profile: aws
-        - profile: aws-2
-          owners:
-            - org: org2
-              repos:
-                - repo1
-                - repo2
-          secret: non-default-secret-name-aws
-        - profile: vsphere-connected-2
-          secret: non-default-secret-name-vsphere
+cluster_profiles:
+- name: aws
+- name: aws-2
+  owners:
+  - org: org2
+    repos:
+    - repo1
+    - repo2
+  secret: non-default-secret-name-aws
+- name: vsphere-connected-2
+  secret: non-default-secret-name-vsphere
     `,
 			expected: profilesWithSecrets,
 		},
@@ -404,7 +407,10 @@ func TestClusterProfilesConfig(t *testing.T) {
 				t.Fatalf("Failed to close tmp file: %v", err)
 			}
 
-			actual, _ := ClusterProfilesConfig(tmpFile.Name())
+			actual, err := ClusterProfilesConfig(tmpFile.Name())
+			if err != nil {
+				t.Fatalf("load cluster profile config: %s", err)
+			}
 
 			if diff := cmp.Diff(tc.expected, actual); diff != "" {
 				t.Errorf("unexpected cluster profiles: %s", diff)

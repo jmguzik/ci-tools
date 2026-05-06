@@ -1,4 +1,5 @@
-- profile: aws-test-profile
+cluster_profiles:
+- name: aws-test-profile
   owners:
     - org: openshift
   cluster_type: aws
