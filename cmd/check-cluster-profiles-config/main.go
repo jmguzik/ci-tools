@@ -18,6 +18,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/openshift/ci-tools/pkg/api"
+	"github.com/openshift/ci-tools/pkg/load"
 	"github.com/openshift/ci-tools/pkg/registry/server"
 	"github.com/openshift/ci-tools/pkg/util"
 )
@@ -61,7 +62,7 @@ func main() {
 	logger := logrus.WithField("component", "check-cluster-profiles-config")
 	o := gatherOptions()
 
-	profiles, err := loadConfig(o.configPath)
+	profiles, err := load.ClusterProfileList(o.configPath)
 	if err != nil {
 		logger.WithError(err).Fatal("failed to load cluster profiles from config file")
 	}
@@ -99,7 +100,7 @@ func main() {
 	}
 
 	normalizedProfiles := profiles.DeepCopy()
-	normalize(normalizedProfiles)
+	normalize(*normalizedProfiles)
 
 	if diff := cmp.Diff(profiles, normalizedProfiles); diff != "" {
 		fmt.Print(diff)
@@ -113,22 +114,8 @@ func main() {
 	logger.Info("Cluster profiles successfully checked.")
 }
 
-func loadConfig(configPath string) (api.ClusterProfilesList, error) {
-	configContents, err := os.ReadFile(configPath)
-	if err != nil {
-		return api.ClusterProfilesList{}, fmt.Errorf("failed to read cluster profiles config: %w", err)
-	}
-
-	var profilesList api.ClusterProfilesList
-	if err = yaml.Unmarshal(configContents, &profilesList); err != nil {
-		return api.ClusterProfilesList{}, fmt.Errorf("failed to unmarshall file %s: %w", configPath, err)
-	}
-
-	return profilesList, nil
-}
-
 func writeConfig(configPath string, profiles api.ClusterProfilesList) error {
-	bytes, err := yaml.Marshal(profiles)
+	bytes, err := yaml.Marshal(&profiles)
 	if err != nil {
 		return fmt.Errorf("marshal profiles: %w", err)
 	}
@@ -141,7 +128,7 @@ func writeConfig(configPath string, profiles api.ClusterProfilesList) error {
 }
 
 func (validator *profileValidator) Validate(profiles api.ClusterProfilesList) error {
-	for _, p := range profiles {
+	for _, p := range profiles.ClusterProfiles {
 		// Check for duplicate orgs/tenants
 		tenantMap := sets.New[string]()
 		orgMap := sets.New[string]()
@@ -153,34 +140,34 @@ func (validator *profileValidator) Validate(profiles api.ClusterProfilesList) er
 			}
 
 			if tenant == "" && owner.Org == "" {
-				return fmt.Errorf("cluster profile '%v' has an invalid owner", p.Profile)
+				return fmt.Errorf("cluster profile '%v' has an invalid owner", p.Name)
 			}
 
 			if tenant != "" && owner.Org != "" {
-				return fmt.Errorf("cluster profile '%v' has both org and tenant set", p.Profile)
+				return fmt.Errorf("cluster profile '%v' has both org and tenant set", p.Name)
 			}
 
 			if tenant != "" {
 				if tenantMap.Has(tenant) {
-					return fmt.Errorf("cluster profile '%v' has duplicate tenant %q", p.Profile, tenant)
+					return fmt.Errorf("cluster profile '%v' has duplicate tenant %q", p.Name, tenant)
 				}
 				tenantMap.Insert(tenant)
 			}
 
 			if owner.Org != "" {
 				if orgMap.Has(owner.Org) {
-					return fmt.Errorf("cluster profile '%v' has duplicate org %q", p.Profile, owner.Org)
+					return fmt.Errorf("cluster profile '%v' has duplicate org %q", p.Name, owner.Org)
 				}
 				orgMap.Insert(owner.Org)
 			}
 		}
 
 		// Check if a profile isn't already defined in the config
-		if _, found := validator.profiles[p.Profile]; found {
-			return fmt.Errorf("cluster profile '%v' already exists in the configuration file", p.Profile)
+		if _, found := validator.profiles[p.Name]; found {
+			return fmt.Errorf("cluster profile '%v' already exists in the configuration file", p.Name)
 		}
 
-		validator.profiles[p.Profile] = p
+		validator.profiles[p.Name] = p
 	}
 	return nil
 }
@@ -202,8 +189,8 @@ func (validator *profileValidator) checkCISecrets() error {
 }
 
 func normalize(profiles api.ClusterProfilesList) {
-	for i := range profiles {
-		profile := &profiles[i]
+	for i := range profiles.ClusterProfiles {
+		profile := &profiles.ClusterProfiles[i]
 		sortOwners(profile.Owners)
 	}
 }

@@ -1979,7 +1979,7 @@ func TestValidateTestConfigurationType(t *testing.T) {
 func TestVerifyClusterProfileOwnership(t *testing.T) {
 	cpMap := api.ClusterProfilesMap{
 		"profile-with-one-owner": api.ClusterProfileDetails{
-			Profile: "profile-with-one-owner",
+			Name: "profile-with-one-owner",
 			Owners: []api.ClusterProfileOwners{
 				{
 					Org: "org",
@@ -1987,7 +1987,7 @@ func TestVerifyClusterProfileOwnership(t *testing.T) {
 			},
 		},
 		"profile-with-one-owner-w-multiple-repos": api.ClusterProfileDetails{
-			Profile: "profile-with-one-owner-w-multiple-repos",
+			Name: "profile-with-one-owner-w-multiple-repos",
 			Owners: []api.ClusterProfileOwners{
 				{
 					Org:   "org2",
@@ -1996,7 +1996,7 @@ func TestVerifyClusterProfileOwnership(t *testing.T) {
 			},
 		},
 		"profile-with-multiple-orgs-and-repos": api.ClusterProfileDetails{
-			Profile: "profile-with-multiple-orgs-and-repos",
+			Name: "profile-with-multiple-orgs-and-repos",
 			Owners: []api.ClusterProfileOwners{
 				{
 					Org:   "org1",
@@ -2012,8 +2012,8 @@ func TestVerifyClusterProfileOwnership(t *testing.T) {
 			},
 		},
 		"profile-with-no-owners-specified": api.ClusterProfileDetails{
-			Profile: "profile-with-no-owners-specified",
-			Owners:  []api.ClusterProfileOwners{},
+			Name:   "profile-with-no-owners-specified",
+			Owners: []api.ClusterProfileOwners{},
 		},
 	}
 	v := NewValidator(cpMap, nil)

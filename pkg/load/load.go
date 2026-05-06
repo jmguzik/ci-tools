@@ -248,30 +248,44 @@ func loadWorkflow(bytes []byte) (string, string, api.MultiStageTestConfiguration
 	return workflow.Workflow.As, workflow.Workflow.Documentation, workflow.Workflow.Steps, nil
 }
 
-// ClusterProfilesConfig loads cluster profile information from its config in the release repository
-func ClusterProfilesConfig(configPath string) (api.ClusterProfilesMap, error) {
-	configContents, err := os.ReadFile(configPath)
+func ClusterProfileList(clusterProfileListPath string) (api.ClusterProfilesList, error) {
+	profiles := api.ClusterProfilesList{}
+
+	content, err := os.ReadFile(clusterProfileListPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read cluster profiles config: %w", err)
+		return profiles, fmt.Errorf("read file %s: %w", clusterProfileListPath, err)
 	}
 
-	var profilesFromConfig api.ClusterProfilesList
-	if err = yaml.Unmarshal(configContents, &profilesFromConfig); err != nil {
-		return nil, fmt.Errorf("failed to unmarshall file %v. Please check that the formatting in the file is correct. Full error: %w", configPath, err)
+	if err = yaml.Unmarshal(content, &profiles); err != nil {
+		return profiles, fmt.Errorf("unmarshal file %s: %w", clusterProfileListPath, err)
+	}
+
+	if err := profiles.Resolve(); err != nil {
+		return profiles, fmt.Errorf("resolve: %w", err)
+	}
+
+	return profiles, nil
+}
+
+// ClusterProfilesConfig loads cluster profile information from its config in the release repository
+func ClusterProfilesConfig(configPath string) (api.ClusterProfilesMap, error) {
+	profilesFromConfig, err := ClusterProfileList(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("load cluster profile list: %w", err)
 	}
 
 	// TODO: The following code can be erased once profiles are completely moved
 	// from code in ci-tools to the config file in openshift/release
 	profilesFromConfigMap := make(api.ClusterProfilesMap)
-	for _, p := range profilesFromConfig {
-		profilesFromConfigMap[p.Profile] = p
+	for _, p := range profilesFromConfig.ClusterProfiles {
+		profilesFromConfigMap[p.Name] = p
 	}
 
 	mergedMap := make(api.ClusterProfilesMap)
 	for _, profileName := range api.ClusterProfiles() {
 		profile, found := profilesFromConfigMap[profileName]
 		if !found {
-			profile = api.ClusterProfileDetails{Profile: profileName}
+			profile = api.ClusterProfileDetails{Name: profileName}
 		}
 
 		// TODO: Remove these assignments once cluster profiles

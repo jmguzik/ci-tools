@@ -472,7 +472,7 @@ func verifyClusterProfileOwnership(profile api.ClusterProfileDetails, m *api.Met
 			return nil
 		}
 	}
-	return fmt.Errorf("%s/%s is not an owner of the cluster profile: %q", m.Org, m.Repo, profile.Profile)
+	return fmt.Errorf("%s/%s is not an owner of the cluster profile: %q", m.Org, m.Repo, profile.Name)
 }
 
 func verifyClusterClaimOwnership(claim api.ClusterClaimDetails, m *api.Metadata) error {

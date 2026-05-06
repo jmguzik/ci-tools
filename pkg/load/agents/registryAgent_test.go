@@ -14,7 +14,7 @@ func TestGetClusterProfileDetails(t *testing.T) {
 	agent := &registryAgent{
 		clusterProfiles: api.ClusterProfilesMap{
 			"aws": {
-				Profile: "aws",
+				Name: "aws",
 				Owners: []api.ClusterProfileOwners{{
 					Org:   "openshift",
 					Repos: []string{"release"},
@@ -36,7 +36,7 @@ func TestGetClusterProfileDetails(t *testing.T) {
 			name:        "profile found",
 			profileName: "aws",
 			expected: &api.ClusterProfileDetails{
-				Profile: "aws",
+				Name: "aws",
 				Owners: []api.ClusterProfileOwners{{
 					Org:   "openshift",
 					Repos: []string{"release"},

@@ -1,9 +1,7 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
-	"regexp"
 	"slices"
 	"strings"
 
@@ -2976,29 +2974,21 @@ type ClusterProfileKonfluxConfig struct {
 	ClusterGroups map[string][]string `yaml:"cluster_groups,omitempty" json:"cluster_groups,omitempty"`
 }
 
-// NOTE: clusterProfilesList2 will replace ClusterProfilesList as soon as the
-// migration toward the new schema is done
-type clusterProfilesList2 struct {
+type ClusterProfilesList struct {
 	KonfluxConfig   *ClusterProfileKonfluxConfig `yaml:"konflux,omitempty" json:"konflux,omitempty"`
 	ClusterProfiles []ClusterProfileDetails      `yaml:"cluster_profiles,omitempty" json:"cluster_profiles,omitempty"`
 }
 
-func (cpl2 *clusterProfilesList2) Resolve() error {
+func (cpl *ClusterProfilesList) Resolve() error {
 	errs := make([]error, 0)
 
 	clusterGroups := make(map[string][]string)
-	if cpl2.KonfluxConfig != nil {
-		clusterGroups = cpl2.KonfluxConfig.ClusterGroups
+	if cpl.KonfluxConfig != nil {
+		clusterGroups = cpl.KonfluxConfig.ClusterGroups
 	}
 
-	for i := range cpl2.ClusterProfiles {
-		profile := &cpl2.ClusterProfiles[i]
-
-		// NOTE: For backward compatibility only. Remove as soon as the
-		// migration to the new scheme is done.
-		if profile.Name != "" {
-			profile.Profile = profile.Name
-		}
+	for i := range cpl.ClusterProfiles {
+		profile := &cpl.ClusterProfiles[i]
 
 	ownersLoop:
 		for j := range profile.Owners {
@@ -3030,47 +3020,9 @@ func (cpl2 *clusterProfilesList2) Resolve() error {
 	return aggerrs.NewAggregate(errs)
 }
 
-type ClusterProfilesList []ClusterProfileDetails
 type ClusterProfilesMap map[ClusterProfile]ClusterProfileDetails
 
-func (cpl *ClusterProfilesList) UnmarshalJSON(data []byte) error {
-	if len(data) == 0 {
-		return nil
-	}
-
-	// NOTE: If the json string starts with `[`, it means we are unmarshaling the
-	// old version of `ClusterProfileList`. This code exists for backward compatibility
-	// reasons and will be deleted as soon as the transition toward the new scheme is done.
-	oldSchema, err := regexp.Match(`^\s*\[`, data)
-	if err != nil {
-		return fmt.Errorf("detect new schema: %w", err)
-	}
-
-	if !oldSchema {
-		profileListEnhanced := &clusterProfilesList2{}
-		if err := json.Unmarshal(data, profileListEnhanced); err != nil {
-			return err
-		}
-
-		if err := profileListEnhanced.Resolve(); err != nil {
-			return fmt.Errorf("resolve cluster profile list: %w", err)
-		}
-
-		*cpl = profileListEnhanced.ClusterProfiles
-		return nil
-	}
-
-	cpDetails := make([]ClusterProfileDetails, 0)
-	if err := json.Unmarshal(data, &cpDetails); err != nil {
-		return err
-	}
-
-	*cpl = cpDetails
-	return nil
-}
-
 type ClusterProfileDetails struct {
-	Profile     ClusterProfile         `yaml:"profile,omitempty" json:"profile,omitempty"`
 	Name        ClusterProfile         `yaml:"name,omitempty" json:"name,omitempty"`
 	Owners      []ClusterProfileOwners `yaml:"owners,omitempty" json:"owners,omitempty"`
 	ClusterType string                 `yaml:"cluster_type,omitempty" json:"cluster_type,omitempty"`

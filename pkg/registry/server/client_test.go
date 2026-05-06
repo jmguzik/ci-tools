@@ -87,7 +87,7 @@ func TestConfig(t *testing.T) {
 
 func TestClusterProfile(t *testing.T) {
 	awsProfile := &api.ClusterProfileDetails{
-		Profile: "aws",
+		Name: "aws",
 		Owners: []api.ClusterProfileOwners{{
 			Org:   "openshift",
 			Repos: []string{"release"},
@@ -96,7 +96,7 @@ func TestClusterProfile(t *testing.T) {
 		LeaseType:   "aws-quota-slice",
 		Secret:      "cluster-secrets-aws",
 	}
-	awsName := awsProfile.Profile.Name()
+	awsName := awsProfile.Name.Name()
 	jsonAwsProfile, err := json.MarshalIndent(awsProfile, "", "  ")
 	if err != nil {
 		t.Fatalf("%s: Failed to marshal cluster profile to JSON: %v", t.Name(), err)
