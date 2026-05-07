@@ -26,6 +26,25 @@ func IsPromotionJob(jobLabels map[string]string) bool {
 	return ok
 }
 
+var (
+	DefaultSlackReporterJobStatesToReport = []prowv1.ProwJobState{
+		prowv1.SuccessState,
+		prowv1.FailureState,
+		prowv1.ErrorState,
+	}
+	DefaultSlackReporterReportTemplate = `{{if eq .Status.State "success"}} :slack-green: Job *{{.Spec.Job}}* ended with *{{.Status.State}}*. <{{.Status.URL}}|View logs> {{else}} :failed: Job *{{.Spec.Job}}* ended with *{{.Status.State}}*. <{{.Status.URL}}|View logs> {{end}}`
+)
+
+type SlackReporterConfig struct {
+	Channel           string                `json:"channel"`
+	JobStatesToReport []prowv1.ProwJobState `json:"job_states_to_report,omitempty"`
+	ReportTemplate    string                `json:"report_template,omitempty"`
+	// ReportPresubmit controls whether the presubmit job generated from a
+	// periodic test with `presubmit: true` also gets this slack config.
+	// Only valid when the test has `presubmit: true`.
+	ReportPresubmit bool `json:"report_presubmit,omitempty"`
+}
+
 type ProwgenOverrides struct {
 	DisableRehearsals           bool `json:"disable_rehearsals,omitempty"`
 	SkipOperatorPresubmits      bool `json:"skip_operator_presubmits,omitempty"`
@@ -886,6 +905,9 @@ type TestStepConfiguration struct {
 
 	// MaxConcurrency sets the maximum number of this job running concurrently. 0 means no limit.
 	MaxConcurrency int `json:"max_concurrency,omitempty"`
+
+	// SlackReporterConfig configures Slack notifications for this test's generated jobs.
+	SlackReporterConfig *SlackReporterConfig `json:"reporter_config,omitempty"`
 
 	// Only one of the following can be not-null.
 	ContainerTestConfiguration         *ContainerTestConfiguration         `json:"container,omitempty"`

@@ -1,0 +1,65 @@
+base_images:
+  base:
+    name: origin-v4.0
+    namespace: openshift
+    tag: base
+build_root:
+  image_stream_tag:
+    name: release
+    namespace: openshift
+    tag: golang-1.10
+resources:
+  '*':
+    limits:
+      cpu: 500Mi
+    requests:
+      cpu: 10Mi
+tag_specification:
+  name: origin-v4.0
+  namespace: openshift
+tests:
+- as: unit
+  commands: make test-unit
+  container:
+    from: src
+  reporter_config:
+    channel: "#inline-channel"
+    job_states_to_report:
+    - failure
+    - error
+- as: e2e
+  commands: make test-e2e
+  container:
+    from: src
+- as: upload-results
+  commands: make upload-results
+  container:
+    from: src
+  postsubmit: true
+  reporter_config:
+    channel: "#postsubmit-channel"
+    job_states_to_report:
+    - failure
+- as: lint
+  commands: make test-lint
+  container:
+    from: src
+  interval: 2h
+  presubmit: true
+  reporter_config:
+    channel: "#periodic-only-channel"
+    job_states_to_report:
+    - error
+- as: verify
+  commands: make verify
+  container:
+    from: src
+  cron: '@daily'
+  presubmit: true
+  reporter_config:
+    channel: "#both-channel"
+    report_presubmit: true
+zz_generated_metadata:
+  branch: master
+  org: slack-report-inline
+  repo: duper

@@ -1085,6 +1085,16 @@ const ciOperatorReferenceYaml = "# The list of base images describe\n" +
 	"        # The job must be configured as a verification or periodic job in a\n" +
 	"        # release-controller config file when this field is set to `true`.\n" +
 	"        release_controller: true\n" +
+	"        # SlackReporterConfig configures Slack notifications for this test's generated jobs.\n" +
+	"        reporter_config:\n" +
+	"            channel: ' '\n" +
+	"            job_states_to_report:\n" +
+	"                - \"\"\n" +
+	"            # ReportPresubmit controls whether the presubmit job generated from a\n" +
+	"            # periodic test with `presubmit: true` also gets this slack config.\n" +
+	"            # Only valid when the test has `presubmit: true`.\n" +
+	"            report_presubmit: true\n" +
+	"            report_template: ' '\n" +
 	"        # RestrictNetworkAccess restricts network access to RedHat intranet.\n" +
 	"        restrict_network_access: false\n" +
 	"        # Retry is a configuration entry for retrying periodic prowjobs\n" +
@@ -2007,6 +2017,16 @@ const ciOperatorReferenceYaml = "# The list of base images describe\n" +
 	"      # The job must be configured as a verification or periodic job in a\n" +
 	"      # release-controller config file when this field is set to `true`.\n" +
 	"      release_controller: true\n" +
+	"      # SlackReporterConfig configures Slack notifications for this test's generated jobs.\n" +
+	"      reporter_config:\n" +
+	"        channel: ' '\n" +
+	"        job_states_to_report:\n" +
+	"            - \"\"\n" +
+	"        # ReportPresubmit controls whether the presubmit job generated from a\n" +
+	"        # periodic test with `presubmit: true` also gets this slack config.\n" +
+	"        # Only valid when the test has `presubmit: true`.\n" +
+	"        report_presubmit: true\n" +
+	"        report_template: ' '\n" +
 	"      # RestrictNetworkAccess restricts network access to RedHat intranet.\n" +
 	"      restrict_network_access: false\n" +
 	"      # Retry is a configuration entry for retrying periodic prowjobs\n" +

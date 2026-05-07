@@ -213,6 +213,15 @@ func (v *Validator) validateTestStepConfiguration(
 			}
 		}
 
+		if test.SlackReporterConfig != nil {
+			if test.SlackReporterConfig.Channel == "" {
+				validationErrors = append(validationErrors, fmt.Errorf("%s.reporter_config.channel: must be set", fieldRootN))
+			}
+			if test.SlackReporterConfig.ReportPresubmit && !test.Presubmit {
+				validationErrors = append(validationErrors, fmt.Errorf("%s.reporter_config.report_presubmit: can only be set when the test has `presubmit: true`", fieldRootN))
+			}
+		}
+
 		maxJobTimeout := time.Hour * 72
 		if test.Timeout != nil && test.Timeout.Duration > maxJobTimeout {
 			validationErrors = append(validationErrors, fmt.Errorf("%s: job timeout is limited to %s", fieldRootN, maxJobTimeout))
