@@ -5,7 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -185,5 +187,260 @@ func TestPrepareCandidateRebaseDirection(t *testing.T) {
 	}
 	if len(changes) != 1 || changes[0] != "pr.txt" {
 		t.Errorf("expected diff main..HEAD to show only [pr.txt], got %v", changes)
+	}
+}
+
+func TestHasPathPrefix(t *testing.T) {
+	tests := []struct {
+		name   string
+		path   string
+		prefix string
+		want   bool
+	}{
+		{name: "exact match", path: "ci-operator/config", prefix: "ci-operator/config", want: true},
+		{name: "child path", path: "ci-operator/config/org/repo.yaml", prefix: "ci-operator/config", want: true},
+		{name: "partial name match should not match", path: "ci-operator/configs/foo", prefix: "ci-operator/config", want: false},
+		{name: "completely different path", path: "docs/readme.md", prefix: "ci-operator/config", want: false},
+		{name: "prefix is longer than path", path: "ci-operator", prefix: "ci-operator/config", want: false},
+		{name: "empty path", path: "", prefix: "ci-operator/config", want: false},
+		{name: "empty prefix matches exact empty", path: "", prefix: "", want: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := hasPathPrefix(tc.path, tc.prefix)
+			if got != tc.want {
+				t.Errorf("hasPathPrefix(%q, %q) = %v, want %v", tc.path, tc.prefix, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestIsRehearsalRelevantPath(t *testing.T) {
+	tests := []struct {
+		name                   string
+		path                   string
+		includeRegistryChanges bool
+		want                   bool
+	}{
+		{name: "ci-operator config", path: "ci-operator/config/org/repo.yaml", includeRegistryChanges: false, want: true},
+		{name: "ci-operator jobs", path: "ci-operator/jobs/org/repo/job.yaml", includeRegistryChanges: false, want: true},
+		{name: "prow config dir", path: "core-services/prow/02_config/something.yaml", includeRegistryChanges: false, want: true},
+		{name: "registry with flag on", path: "ci-operator/step-registry/ipi/install/install.yaml", includeRegistryChanges: true, want: true},
+		{name: "registry with flag off", path: "ci-operator/step-registry/ipi/install/install.yaml", includeRegistryChanges: false, want: false},
+		{name: "unrelated file", path: "hack/build.sh", includeRegistryChanges: true, want: false},
+		{name: "README at root", path: "README.md", includeRegistryChanges: true, want: false},
+		{name: "ci-operator root file", path: "ci-operator/OWNERS", includeRegistryChanges: false, want: false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := isRehearsalRelevantPath(tc.path, tc.includeRegistryChanges)
+			if got != tc.want {
+				t.Errorf("isRehearsalRelevantPath(%q, %v) = %v, want %v", tc.path, tc.includeRegistryChanges, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestDispatcherImmediateExecution(t *testing.T) {
+	d := newHandlerDispatcher(2, 5, time.Minute, 5*time.Second)
+	logger := logrus.NewEntry(logrus.StandardLogger())
+
+	executed := make(chan struct{})
+	d.dispatch(logger, func() {
+		close(executed)
+	}, nil)
+
+	select {
+	case <-executed:
+	case <-time.After(5 * time.Second):
+		t.Fatal("handler was not executed within timeout")
+	}
+}
+
+func TestDispatcherQueuesThenExecutes(t *testing.T) {
+	d := newHandlerDispatcher(1, 5, 10*time.Second, 30*time.Second)
+	logger := logrus.NewEntry(logrus.StandardLogger())
+
+	blocker := make(chan struct{})
+	firstStarted := make(chan struct{})
+
+	go d.dispatch(logger, func() {
+		close(firstStarted)
+		<-blocker
+	}, nil)
+
+	select {
+	case <-firstStarted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("first handler did not start")
+	}
+
+	secondDone := make(chan struct{})
+	go d.dispatch(logger, func() {
+		close(secondDone)
+	}, nil)
+
+	select {
+	case <-secondDone:
+		t.Fatal("second handler should not have run while first is blocking")
+	case <-time.After(200 * time.Millisecond):
+	}
+
+	close(blocker)
+	select {
+	case <-secondDone:
+	case <-time.After(5 * time.Second):
+		t.Fatal("second handler was not executed after first completed")
+	}
+}
+
+func TestDispatcherDropsWhenQueueFull(t *testing.T) {
+	d := newHandlerDispatcher(1, 1, 10*time.Second, 30*time.Second)
+	logger := logrus.NewEntry(logrus.StandardLogger())
+
+	blocker := make(chan struct{})
+	firstStarted := make(chan struct{})
+	go d.dispatch(logger, func() {
+		close(firstStarted)
+		<-blocker
+	}, nil)
+
+	select {
+	case <-firstStarted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("first handler did not start")
+	}
+
+	// Fill the single queue slot; this dispatch will block in the select
+	// waiting for an execution slot, which holds the queue slot occupied.
+	secondStarted := make(chan struct{})
+	go d.dispatch(logger, func() {
+		close(secondStarted)
+	}, nil)
+
+	// We can't directly observe the second handler entering the queue, but
+	// we know it can't start (slot is full) and can't be dropped (queue has
+	// room). Give the scheduler a moment to let it enter the select.
+	time.Sleep(50 * time.Millisecond)
+
+	dropped := make(chan string, 1)
+	d.dispatch(logger, func() {}, func(reason string) {
+		dropped <- reason
+	})
+
+	select {
+	case reason := <-dropped:
+		if reason != "queue_full" {
+			t.Errorf("expected reason 'queue_full', got %q", reason)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("third handler was not dropped")
+	}
+
+	close(blocker)
+
+	select {
+	case <-secondStarted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("second handler did not start after blocker released")
+	}
+}
+
+func TestDispatcherQueueTimeout(t *testing.T) {
+	d := newHandlerDispatcher(1, 5, 200*time.Millisecond, 30*time.Second)
+	logger := logrus.NewEntry(logrus.StandardLogger())
+
+	blocker := make(chan struct{})
+	firstStarted := make(chan struct{})
+	go d.dispatch(logger, func() {
+		close(firstStarted)
+		<-blocker
+	}, nil)
+
+	select {
+	case <-firstStarted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("first handler did not start")
+	}
+
+	dropped := make(chan string, 1)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		d.dispatch(logger, func() {
+			t.Error("handler should not have run after queue timeout")
+		}, func(reason string) {
+			dropped <- reason
+		})
+	}()
+
+	select {
+	case reason := <-dropped:
+		if reason != "queue_timeout" {
+			t.Errorf("expected reason 'queue_timeout', got %q", reason)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("handler was not dropped after queue timeout")
+	}
+
+	close(blocker)
+	wg.Wait()
+}
+
+type commentRecorder struct {
+	fakeGHC
+	mu       sync.Mutex
+	comments []string
+}
+
+func (c *commentRecorder) CreateComment(_, _ string, _ int, comment string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.comments = append(c.comments, comment)
+	return nil
+}
+
+func (c *commentRecorder) getComments() []string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	out := make([]string, len(c.comments))
+	copy(out, c.comments)
+	return out
+}
+
+func TestNotifyDroppedRequestUserTriggered(t *testing.T) {
+	ghc := &commentRecorder{}
+	logger := logrus.NewEntry(logrus.StandardLogger())
+
+	notifyDroppedRequest(ghc, "org", "repo", 1, "alice", "queue_full", 5, true, logger)
+
+	comments := ghc.getComments()
+	if len(comments) != 1 {
+		t.Fatalf("expected 1 comment, got %d", len(comments))
+	}
+	if !strings.Contains(comments[0], "@alice") {
+		t.Errorf("expected comment to mention user, got: %s", comments[0])
+	}
+	if !strings.Contains(comments[0], "/pj-rehearse") {
+		t.Errorf("expected comment to mention /pj-rehearse command for user-triggered, got: %s", comments[0])
+	}
+}
+
+func TestNotifyDroppedRequestAutomatic(t *testing.T) {
+	ghc := &commentRecorder{}
+	logger := logrus.NewEntry(logrus.StandardLogger())
+
+	notifyDroppedRequest(ghc, "org", "repo", 1, "alice", "queue_timeout", 5, false, logger)
+
+	comments := ghc.getComments()
+	if len(comments) != 1 {
+		t.Fatalf("expected 1 comment, got %d", len(comments))
+	}
+	if !strings.Contains(comments[0], "could not automatically process") {
+		t.Errorf("expected automatic event message, got: %s", comments[0])
+	}
+	if !strings.Contains(comments[0], "5 minutes") {
+		t.Errorf("expected timeout duration in message, got: %s", comments[0])
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -399,7 +400,12 @@ func (s *server) handlePotentialCommands(pullRequest *github.PullRequest, commen
 					continue
 				}
 
-				//TODO(DPTP-2888): this is the point at which we can use repoClient.RevParse() to see if we even need to load the configs at all, and also prune the set of loaded configs to only the changed files
+				shouldAnalyze, err := shouldAnalyzeRehearsals(repoClient, pullRequest.Base.Ref, !rc.NoRegistry, logger)
+				if err != nil {
+					logger.WithError(err).Error("couldn't determine changed files")
+					s.reportFailure("unable to determine changed files", err, org, repo, user, number, true, false, logger)
+					continue
+				}
 
 				allowedLabel := false
 				approved := false
@@ -411,6 +417,15 @@ func (s *server) handlePotentialCommands(pullRequest *github.PullRequest, commen
 					}
 				}
 				networkAccessRehearsalsAllowed := allowedLabel && approved
+
+				if !shouldAnalyze {
+					logger.Debug("Skipping affected job analysis because no rehearsal-relevant paths changed")
+					s.acknowledgeRehearsals(org, repo, number, logger)
+					if err := s.ghc.CreateComment(org, repo, number, fmt.Sprintf("@%s: no rehearsal-relevant files were changed in this PR", user)); err != nil {
+						logger.WithError(err).Error("failed to create comment")
+					}
+					continue
+				}
 
 				candidatePath := repoClient.Directory()
 				prConfig, presubmits, periodics, _, err := rc.DetermineAffectedJobs(candidate, candidatePath, networkAccessRehearsalsAllowed, logger)
@@ -498,11 +513,50 @@ func (s *server) getAffectedJobs(pullRequest *github.PullRequest, logger *logrus
 		return nil, nil, nil, fmt.Errorf("couldn't prepare candidate: %w", err)
 	}
 
-	//TODO(DPTP-2888): this is the point at which we can use repoClient.RevParse() to see if we even need to load the configs at all, and also prune the set of loaded configs to only the changed files
+	shouldAnalyze, err := shouldAnalyzeRehearsals(repoClient, pullRequest.Base.Ref, !rc.NoRegistry, logger)
+	if err != nil {
+		logger.WithError(err).Error("couldn't determine changed files")
+		return nil, nil, nil, fmt.Errorf("couldn't determine changed files: %w", err)
+	}
+	if !shouldAnalyze {
+		logger.Debug("Skipping affected job analysis because no rehearsal-relevant paths changed")
+		return config.Presubmits{}, config.Periodics{}, nil, nil
+	}
 
 	candidatePath := repoClient.Directory()
 	_, presubmits, periodics, disabledDueToNetworkAccessToggle, err := rc.DetermineAffectedJobs(candidate, candidatePath, false, logger)
 	return presubmits, periodics, disabledDueToNetworkAccessToggle, err
+}
+
+func shouldAnalyzeRehearsals(repoClient git.RepoClient, baseRef string, includeRegistryChanges bool, logger *logrus.Entry) (bool, error) {
+	changedFiles, err := repoClient.Diff(baseRef, "HEAD")
+	if err != nil {
+		return false, fmt.Errorf("failed to diff changed files from base ref %s: %w", baseRef, err)
+	}
+	logger.WithField("changed-files", len(changedFiles)).Debug("Computed changed files for rehearsal prefilter")
+	for _, changedPath := range changedFiles {
+		if isRehearsalRelevantPath(changedPath, includeRegistryChanges) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func isRehearsalRelevantPath(changedPath string, includeRegistryChanges bool) bool {
+	if hasPathPrefix(changedPath, config.CiopConfigInRepoPath) {
+		return true
+	}
+	if hasPathPrefix(changedPath, config.JobConfigInRepoPath) {
+		return true
+	}
+	if hasPathPrefix(changedPath, filepath.Dir(config.ConfigInRepoPath)) {
+		return true
+	}
+	return includeRegistryChanges && hasPathPrefix(changedPath, config.RegistryPath)
+}
+
+func hasPathPrefix(path, prefix string) bool {
+	return path == prefix || strings.HasPrefix(path, prefix+"/")
 }
 
 func (s *server) reportFailure(message string, err error, org, repo, user string, number int, addContact, addUsageDetails bool, l *logrus.Entry) {
