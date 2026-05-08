@@ -2608,6 +2608,14 @@ func LeaseTypeFromClusterType(t string) (string, error) {
 	}
 }
 
+func ClusterProfileFromParams(params Parameters) (ClusterProfile, error) {
+	if params == nil {
+		return "", nil
+	}
+	cp, err := params.Get(ClusterProfileParam)
+	return ClusterProfile(cp), err
+}
+
 // ClusterTestConfiguration describes a test that provisions
 // a cluster and runs a command in it.
 type ClusterTestConfiguration struct {
