@@ -33,19 +33,28 @@ type ipPoolStep struct {
 	metricsAgent *metrics.MetricsAgent
 
 	namespace func() string
+	// To ease unit testing
+	profile         api.ClusterProfile
+	branch          string
+	ipPoolLeaseFunc func(profile api.ClusterProfile, branch string) stepLease
 }
 
-func IPPoolStep(client *lease.Client, secretClient SecretClient, lease api.StepLease, wrapped api.Step, params api.Parameters, namespace func() string, metricsAgent *metrics.MetricsAgent) api.Step {
-	ret := ipPoolStep{
+// lease api.StepLease,
+func IPPoolStep(client *lease.Client, secretClient SecretClient, wrapped api.Step, params api.Parameters,
+	namespace func() string, metricsAgent *metrics.MetricsAgent, profile api.ClusterProfile, branch string) api.Step {
+	return &ipPoolStep{
 		client:       client,
 		secretClient: secretClient,
 		wrapped:      wrapped,
 		namespace:    namespace,
 		params:       params,
-		ipPoolLease:  stepLease{StepLease: lease},
 		metricsAgent: metricsAgent,
+		profile:      profile,
+		branch:       branch,
+		ipPoolLeaseFunc: func(profile api.ClusterProfile, branch string) stepLease {
+			return stepLease{StepLease: api.IPPoolLeaseForTest(profile, branch)}
+		},
 	}
-	return &ret
 }
 
 func (s *ipPoolStep) Inputs() (api.InputDefinition, error) {
@@ -70,12 +79,13 @@ func (s *ipPoolStep) Provides() api.ParameterMap {
 	if parameters == nil {
 		parameters = api.ParameterMap{}
 	}
-	l := &s.ipPoolLease
+
 	// Disable unparam lint as we need to confirm to this interface, but there will never be an error
 	//nolint:unparam
-	parameters[l.Env] = func() (string, error) {
-		return strconv.Itoa(len(l.resources)), nil
+	parameters[api.DefaultIPPoolLeaseEnv] = func() (string, error) {
+		return strconv.Itoa(len(s.ipPoolLease.resources)), nil
 	}
+
 	return parameters
 }
 
@@ -99,7 +109,21 @@ func (s *ipPoolStep) Run(ctx context.Context) error {
 
 // minute is provided as an argument to assist with unit testing
 func (s *ipPoolStep) run(ctx context.Context, minute time.Duration) error {
+	clusterProfile, err := api.ClusterProfileFromParams(s.params)
+	if err != nil {
+		return fmt.Errorf("get cluster profile from parameters: %w", err)
+	}
+	if clusterProfile != "" {
+		s.profile = clusterProfile
+	}
+
+	s.ipPoolLease = s.ipPoolLeaseFunc(s.profile, s.branch)
+	if !s.ipPoolLeaseAvailable() {
+		return results.ForReason("executing_test").ForError(s.wrapped.Run(ctx))
+	}
+
 	l := &s.ipPoolLease
+
 	region, err := s.params.Get(api.DefaultLeaseEnv)
 	if err != nil || region == "" {
 		return results.ForReason("acquiring_ip_pool_lease").WithError(err).Errorf("failed to determine region to acquire lease for %s", l.ResourceType)
@@ -144,6 +168,10 @@ func (s *ipPoolStep) run(ctx context.Context, minute time.Duration) error {
 	releaseErr := results.ForReason("releasing_ip_pool_lease").ForError(releaseLeases(client, s.metricsAgent, l))
 
 	return aggregateWrappedErrorAndReleaseError(wrappedErr, releaseErr)
+}
+
+func (s *ipPoolStep) ipPoolLeaseAvailable() bool {
+	return s.ipPoolLease.StepLease.ResourceType != ""
 }
 
 type SecretClient interface {

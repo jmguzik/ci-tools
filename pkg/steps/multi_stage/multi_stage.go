@@ -232,7 +232,7 @@ func (s *multiStageTestStep) Run(ctx context.Context) error {
 func (s *multiStageTestStep) run(ctx context.Context) error {
 	logrus.Infof("Running multi-stage test %s", s.name)
 
-	clusterProfile, err := getClusterProfileFromParams(s.params)
+	clusterProfile, err := api.ClusterProfileFromParams(s.params)
 	if err != nil {
 		return fmt.Errorf("get cluster profile from parameters: %w", err)
 	}
@@ -624,14 +624,6 @@ func getMountPath(secretName string) string {
 
 func volumeName(ns, name string) string {
 	return strings.ReplaceAll(fmt.Sprintf("%s-%s", ns, name), ".", "-")
-}
-
-func getClusterProfileFromParams(params api.Parameters) (api.ClusterProfile, error) {
-	if params == nil {
-		return "", nil
-	}
-	cp, err := params.Get(api.ClusterProfileParam)
-	return api.ClusterProfile(cp), err
 }
 
 // ensureScriptConfigMap copies the lease proxy scripts ConfigMap from src to dst.

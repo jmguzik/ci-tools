@@ -125,7 +125,7 @@ func TestIPPoolLeaseForTest(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ret := IPPoolLeaseForTest(&tc.tests, tc.metadata)
+			ret := IPPoolLeaseForTest(tc.tests.ClusterProfile, tc.metadata.Branch)
 			if diff := cmp.Diff(tc.expected, ret); diff != "" {
 				t.Errorf("incorrect lease returned, diff: %s", diff)
 			}

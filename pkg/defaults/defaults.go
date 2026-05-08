@@ -356,19 +356,20 @@ func stepForTest(cfg *Config, inputImages inputImageSet, c *api.TestStepConfigur
 ) []api.Step {
 	if test := c.MultiStageTestConfigurationLiteral; test != nil {
 		params := cfg.params
+
 		leases := api.LeasesForTest(c)
-		ipPoolLease := api.IPPoolLeaseForTest(test, cfg.CIConfig.Metadata)
-		if len(leases) != 0 || ipPoolLease.ResourceType != "" {
+		if len(leases) != 0 {
 			params = api.NewDeferredParameters(params)
 		}
+
 		var ret []api.Step
 		step := multi_stage.MultiStageTestStep(*c, cfg.CIConfig, params, cfg.podClient, cfg.JobSpec, leases, cfg.NodeName, cfg.TargetAdditionalSuffix, nil, cfg.GSMConfig != nil, cfg.GSMConfig, isLeaseProxyServerAvailable(cfg), retry.DefaultRetry)
-		if ipPoolLease.ResourceType != "" {
-			step = steps.IPPoolStep(cfg.LeaseClient, cfg.podClient, ipPoolLease, step, params, cfg.JobSpec.Namespace, cfg.MetricsAgent)
-		}
+
 		if len(leases) != 0 {
+			step = steps.IPPoolStep(cfg.LeaseClient, cfg.podClient, step, params, cfg.JobSpec.Namespace, cfg.MetricsAgent, test.ClusterProfile, cfg.CIConfig.Metadata.Branch)
 			step = steps.LeaseStep(cfg.LeaseClient, leases, step, cfg.JobSpec.Namespace, cfg.MetricsAgent, cfg.kubeClient, cfg.ClusterProfileGetter)
 		}
+
 		if c.ClusterClaim != nil {
 			step = steps.ClusterClaimStep(c.As, c.ClusterClaim, cfg.hiveClient, cfg.kubeClient, cfg.JobSpec, step, cfg.Censor)
 			name := c.ClusterClaim.ClaimRelease(c.As).ReleaseName

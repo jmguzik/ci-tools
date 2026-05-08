@@ -27,19 +27,21 @@ func LeasesForTest(test *TestStepConfiguration) (ret []StepLease) {
 
 const maxAddressesRequired = 13
 
-func IPPoolLeaseForTest(s *MultiStageTestConfigurationLiteral, metadata Metadata) (ret StepLease) {
-	p := s.ClusterProfile
-	if p != "" {
-		if lt := p.IPPoolLeaseType(); lt != "" {
-			if !p.IPPoolLeaseShouldValidateBranch() || branchValidForIPPoolLease(metadata.Branch) {
-				ret = StepLease{
-					ResourceType: lt,
-					Env:          DefaultIPPoolLeaseEnv,
-					Count:        maxAddressesRequired,
-				}
+func IPPoolLeaseForTest(profile ClusterProfile, branch string) (ret StepLease) {
+	if profile == "" {
+		return
+	}
+
+	if lt := profile.IPPoolLeaseType(); lt != "" {
+		if !profile.IPPoolLeaseShouldValidateBranch() || branchValidForIPPoolLease(branch) {
+			ret = StepLease{
+				ResourceType: lt,
+				Env:          DefaultIPPoolLeaseEnv,
+				Count:        maxAddressesRequired,
 			}
 		}
 	}
+
 	return
 }
 

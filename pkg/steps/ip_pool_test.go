@@ -18,6 +18,10 @@ import (
 	"github.com/openshift/ci-tools/pkg/testhelper"
 )
 
+func ipPoolLeaseAdapter(lease stepLease) func(api.ClusterProfile, string) stepLease {
+	return func(api.ClusterProfile, string) stepLease { return lease }
+}
+
 func TestProvides(t *testing.T) {
 	testCases := []struct {
 		name     string
@@ -148,13 +152,13 @@ func TestRun(t *testing.T) {
 		{
 			name: "leases available in region",
 			step: ipPoolStep{
-				ipPoolLease: stepLease{
+				ipPoolLeaseFunc: ipPoolLeaseAdapter(stepLease{
 					StepLease: api.StepLease{
 						ResourceType: "aws-ip-pool",
 						Env:          api.DefaultIPPoolLeaseEnv,
 						Count:        2,
 					},
-				},
+				}),
 				wrapped: &stepNeedsLease{},
 				params:  fakeStepParams{api.DefaultLeaseEnv: "us-east-1"},
 				namespace: func() string {
@@ -171,13 +175,13 @@ func TestRun(t *testing.T) {
 		{
 			name: "requested to release unused",
 			step: ipPoolStep{
-				ipPoolLease: stepLease{
+				ipPoolLeaseFunc: ipPoolLeaseAdapter(stepLease{
 					StepLease: api.StepLease{
 						ResourceType: "aws-ip-pool",
 						Env:          api.DefaultIPPoolLeaseEnv,
 						Count:        3,
 					},
-				},
+				}),
 				wrapped: &blockingStep{},
 				params:  fakeStepParams{api.DefaultLeaseEnv: "us-east-1"},
 				namespace: func() string {
@@ -197,13 +201,13 @@ func TestRun(t *testing.T) {
 		{
 			name: "requested to release too many unused",
 			step: ipPoolStep{
-				ipPoolLease: stepLease{
+				ipPoolLeaseFunc: ipPoolLeaseAdapter(stepLease{
 					StepLease: api.StepLease{
 						ResourceType: "aws-ip-pool",
 						Env:          api.DefaultIPPoolLeaseEnv,
 						Count:        1,
 					},
-				},
+				}),
 				wrapped: &blockingStep{},
 				params:  fakeStepParams{api.DefaultLeaseEnv: "us-east-1"},
 				namespace: func() string {
@@ -219,13 +223,13 @@ func TestRun(t *testing.T) {
 		{
 			name: "leases unavailable in region, step should not error",
 			step: ipPoolStep{
-				ipPoolLease: stepLease{
+				ipPoolLeaseFunc: ipPoolLeaseAdapter(stepLease{
 					StepLease: api.StepLease{
 						ResourceType: "aws-ip-pool",
 						Env:          api.DefaultIPPoolLeaseEnv,
 						Count:        1,
 					},
-				},
+				}),
 				wrapped: &stepNeedsLease{},
 				params:  fakeStepParams{api.DefaultLeaseEnv: "us-east-1"},
 				namespace: func() string {
@@ -242,13 +246,13 @@ func TestRun(t *testing.T) {
 		{
 			name: "region not provided, errors",
 			step: ipPoolStep{
-				ipPoolLease: stepLease{
+				ipPoolLeaseFunc: ipPoolLeaseAdapter(stepLease{
 					StepLease: api.StepLease{
 						ResourceType: "aws-ip-pool",
 						Env:          api.DefaultIPPoolLeaseEnv,
 						Count:        2,
 					},
-				},
+				}),
 				wrapped: &stepNeedsLease{},
 				params:  fakeStepParams{},
 			},
@@ -257,13 +261,13 @@ func TestRun(t *testing.T) {
 		{
 			name: "unknown lease client error",
 			step: ipPoolStep{
-				ipPoolLease: stepLease{
+				ipPoolLeaseFunc: ipPoolLeaseAdapter(stepLease{
 					StepLease: api.StepLease{
 						ResourceType: "aws-ip-pool",
 						Env:          api.DefaultIPPoolLeaseEnv,
 						Count:        1,
 					},
-				},
+				}),
 				wrapped: &stepNeedsLease{},
 				params:  fakeStepParams{api.DefaultLeaseEnv: "us-east-1"},
 			},
@@ -278,13 +282,13 @@ func TestRun(t *testing.T) {
 		{
 			name: "wrapped step fails",
 			step: ipPoolStep{
-				ipPoolLease: stepLease{
+				ipPoolLeaseFunc: ipPoolLeaseAdapter(stepLease{
 					StepLease: api.StepLease{
 						ResourceType: "aws-ip-pool",
 						Env:          api.DefaultIPPoolLeaseEnv,
 						Count:        1,
 					},
-				},
+				}),
 				namespace: func() string {
 					return ciOpNamespace
 				},
@@ -296,6 +300,18 @@ func TestRun(t *testing.T) {
 				"releaseone owner aws-ip-pool-us-east-1_0 free",
 			},
 			expectedError: errors.New("injected failure"),
+		},
+		{
+			name: "ip pool lease not available, run wrapped step",
+			step: ipPoolStep{
+				ipPoolLeaseFunc: ipPoolLeaseAdapter(stepLease{
+					StepLease: api.StepLease{},
+				}),
+				namespace: func() string {
+					return ciOpNamespace
+				},
+				wrapped: &stepNeedsLease{},
+			},
 		},
 	}
 	for _, tc := range testCases {
@@ -342,7 +358,7 @@ func TestRun(t *testing.T) {
 
 func TestIPPoolStepForward(t *testing.T) {
 	step := stepNeedsLease{}
-	withIPPool := IPPoolStep(nil, nil, api.StepLease{ResourceType: "aws-ip-pool", Env: api.DefaultIPPoolLeaseEnv}, &step, nil, emptyNamespace, nil)
+	withIPPool := IPPoolStep(nil, nil, &step, nil, emptyNamespace, nil, api.ClusterProfileAWS, "main")
 	t.Run("SubTests", func(t *testing.T) {
 		s, l := step.SubTests(), withIPPool.(SubtestReporter).SubTests()
 		if diff := cmp.Diff(s, l); diff != "" {
