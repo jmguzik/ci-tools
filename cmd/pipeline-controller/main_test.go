@@ -238,8 +238,35 @@ func TestHandleIssueComment(t *testing.T) {
 		expectedComment   string
 	}{
 		{
+			name: "edited comment: do nothing",
+			event: github.IssueCommentEvent{
+				Action: github.IssueCommentActionEdited,
+				Comment: github.IssueComment{
+					Body: "/pipeline required",
+				},
+				Issue: github.Issue{
+					PullRequest: &struct{}{},
+				},
+			},
+			expectCommentCall: false,
+		},
+		{
+			name: "deleted comment: do nothing",
+			event: github.IssueCommentEvent{
+				Action: github.IssueCommentActionDeleted,
+				Comment: github.IssueComment{
+					Body: "/pipeline required",
+				},
+				Issue: github.Issue{
+					PullRequest: &struct{}{},
+				},
+			},
+			expectCommentCall: false,
+		},
+		{
 			name: "not a PR: do nothing",
 			event: github.IssueCommentEvent{
+				Action: github.IssueCommentActionCreated,
 				Issue: github.Issue{
 					PullRequest: nil,
 				},
@@ -249,6 +276,7 @@ func TestHandleIssueComment(t *testing.T) {
 		{
 			name: "comment doesn't contain /pipeline required: do nothing",
 			event: github.IssueCommentEvent{
+				Action: github.IssueCommentActionCreated,
 				Comment: github.IssueComment{
 					Body: "This is just a regular comment",
 				},
@@ -261,6 +289,7 @@ func TestHandleIssueComment(t *testing.T) {
 		{
 			name: "comment contains /pipeline required in middle of text: do nothing",
 			event: github.IssueCommentEvent{
+				Action: github.IssueCommentActionCreated,
 				Comment: github.IssueComment{
 					Body: "Comment `/pipeline required` to trigger all required & necessary jobs.",
 				},
