@@ -1397,6 +1397,41 @@ func TestGithubTrustedChecker_trustedUser_AllowsTrustedApp(t *testing.T) {
 	}
 }
 
+func TestHandleIssueCommentIgnoresNonCreatedActions(t *testing.T) {
+	ghc := fakegithub.NewFakeClient()
+	s := &server{
+		ghc:        ghc,
+		ctx:        context.TODO(),
+		kubeClient: fakeclient.NewClientBuilder().Build(),
+		namespace:  "ci",
+		jobResolver: newFakeJobResolver(map[string][]config.Job{"4.10": {
+			{Name: "periodic-ci-openshift-release-master-nightly-4.10-e2e-aws-serial"},
+		}}),
+		testResolver:       newFakeTestResolver(),
+		trustedChecker:     &fakeTrustedChecker{},
+		ciOpConfigResolver: &fakeCIOpConfigResolver{},
+	}
+	for _, action := range []github.IssueCommentEventAction{github.IssueCommentActionEdited, github.IssueCommentActionDeleted} {
+		t.Run(string(action), func(t *testing.T) {
+			ghc.IssueCommentsAdded = nil
+			s.handleIssueComment(logrus.WithField("test", t.Name()), github.IssueCommentEvent{
+				Action: action,
+				Repo:   github.Repo{Owner: github.User{Login: "openshift"}},
+				Issue: github.Issue{
+					Number:      123,
+					PullRequest: &struct{}{},
+				},
+				Comment: github.IssueComment{
+					Body: "/payload 4.10 nightly informing",
+				},
+			})
+			if len(ghc.IssueCommentsAdded) > 0 {
+				t.Errorf("expected no comments for %s action, got: %v", action, ghc.IssueCommentsAdded)
+			}
+		})
+	}
+}
+
 func TestGithubTrustedChecker_trustedUser_UntrustedAppFallsBackToHumanCheck(t *testing.T) {
 	c := &githubTrustedChecker{
 		githubClient: nil,

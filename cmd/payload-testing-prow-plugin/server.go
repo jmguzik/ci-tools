@@ -285,6 +285,9 @@ const (
 )
 
 func (s *server) handleIssueComment(l *logrus.Entry, ic github.IssueCommentEvent) {
+	if ic.Action != github.IssueCommentActionCreated {
+		return
+	}
 	if comment, additionalPRs := s.handle(l, ic); comment != "" {
 		org := ic.Repo.Owner.Login
 		repo := ic.Repo.Name
