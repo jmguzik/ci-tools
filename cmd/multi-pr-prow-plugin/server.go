@@ -153,6 +153,9 @@ func newServer(ctx context.Context,
 }
 
 func (s *server) handleIssueComment(l *logrus.Entry, ic github.IssueCommentEvent) {
+	if ic.Action != github.IssueCommentActionCreated {
+		return
+	}
 	if strings.HasPrefix(ic.Comment.Body, testwithPrefix) {
 		l.Infof("handling comment: %s", ic.Comment.Body)
 		_, err := s.handle(l, ic)
