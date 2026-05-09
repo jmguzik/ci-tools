@@ -54,6 +54,9 @@ type server struct {
 }
 
 func (s *server) handleIssueComment(l *logrus.Entry, ic github.IssueCommentEvent) {
+	if ic.Action != github.IssueCommentActionCreated {
+		return
+	}
 	if !commandRe.MatchString(ic.Comment.Body) {
 		return
 	}
