@@ -38,11 +38,9 @@ type jobNameGenerator struct {
 }
 
 var (
-	templateException = []string{
-		"openshift-release-release-5.0-periodics.yaml",
-	}
+	// templateException is for cases where a particular release is known not to have a matching periodicURL definition
+	templateException    = []string{}
 	periodicURLTemplates = []string{
-		"https://raw.githubusercontent.com/openshift/release/main/ci-operator/jobs/openshift/release/openshift-release-release-%s-periodics.yaml",
 		"https://raw.githubusercontent.com/openshift/release/main/ci-operator/jobs/openshift/hypershift/openshift-hypershift-release-%s-periodics.yaml",
 	}
 	releaseConfigURLTemplates = []string{
@@ -103,7 +101,7 @@ func readConfigURL(url string, into interface{}, unmarshal func(data []byte, v a
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusNotFound && isTemplateException(url) {
-		logrus.WithField("url", url).Info("skipping pre-branch-cut config: URL 404 not found")
+		logrus.WithField("url", url).Info("skipping template exception config: URL 404 not found")
 		return true, nil
 	}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
