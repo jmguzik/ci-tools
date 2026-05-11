@@ -76,6 +76,37 @@ func (c *fakeClient) RemoveLabel(org, repo string, number int, label string) err
 	return nil
 }
 
+func TestHandleIssueCommentIgnoresNonCreatedActions(t *testing.T) {
+	for _, action := range []github.IssueCommentEventAction{github.IssueCommentActionEdited, github.IssueCommentActionDeleted} {
+		t.Run(string(action), func(t *testing.T) {
+			orp := orgrepopr{org: "org", repo: "repo", pr: 1}
+			client := &fakeClient{
+				comments: map[orgrepopr][]string{orp: {}},
+				labels:   map[orgrepopr][]string{orp: {}},
+			}
+			s := &server{
+				config: func() *Config { return &Config{} },
+				ghc:    client,
+			}
+			s.handleIssueComment(logrus.WithField("test", t.Name()), github.IssueCommentEvent{
+				Action: action,
+				Repo:   github.Repo{Owner: github.User{Login: "org"}, Name: "repo"},
+				Issue: github.Issue{
+					Number:      1,
+					PullRequest: &struct{}{},
+				},
+				Comment: github.IssueComment{
+					Body: "/validate-backports",
+					User: github.User{Login: "author"},
+				},
+			})
+			if len(client.comments[orp]) > 0 {
+				t.Errorf("expected no comments for %s action, got: %v", action, client.comments[orp])
+			}
+		})
+	}
+}
+
 func TestHandle(t *testing.T) {
 	var testCases = []struct {
 		name             string

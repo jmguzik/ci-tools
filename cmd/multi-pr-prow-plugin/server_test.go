@@ -396,6 +396,37 @@ func TestHandle(t *testing.T) {
 	}
 }
 
+func TestHandleIssueCommentIgnoresNonCreatedActions(t *testing.T) {
+	ghc := fakeGithubClient{}
+	reporter := &fakeReporter{}
+	s := server{
+		ghc:            ghc,
+		trustedChecker: &fakeTrustedChecker{},
+		reporter:       reporter,
+		kubeClient:     fakectrlruntimeclient.NewFakeClient(),
+		namespace:      "ci",
+	}
+	for _, action := range []github.IssueCommentEventAction{github.IssueCommentActionEdited, github.IssueCommentActionDeleted} {
+		t.Run(string(action), func(t *testing.T) {
+			s.handleIssueComment(logrus.WithField("test", t.Name()), github.IssueCommentEvent{
+				Action: action,
+				Repo:   github.Repo{Owner: github.User{Login: "openshift"}, Name: "ci-tools"},
+				Issue: github.Issue{
+					Number:      999,
+					PullRequest: &struct{}{},
+				},
+				Comment: github.IssueComment{
+					Body: "/testwith openshift/ci-tools/main/unit openshift/ci-tools#123",
+					User: github.User{Login: "developer"},
+				},
+			})
+			if got := len(reporter.reported); got != 0 {
+				t.Errorf("expected no reported prow jobs for %s action, got %d", action, got)
+			}
+		})
+	}
+}
+
 func TestDetermineJobRuns(t *testing.T) {
 	testCases := []struct {
 		name          string

@@ -359,6 +359,10 @@ func (cw *clientWrapper) handleLabelAddition(l *logrus.Entry, event github.PullR
 }
 
 func (cw *clientWrapper) handleIssueComment(l *logrus.Entry, event github.IssueCommentEvent) {
+	if event.Action != github.IssueCommentActionCreated {
+		return
+	}
+
 	cw.mu.Lock()
 	defer cw.mu.Unlock()
 
