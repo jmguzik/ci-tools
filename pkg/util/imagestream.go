@@ -56,6 +56,9 @@ func ResolvePullSpec(is *imageapi.ImageStream, tag string, requireExact bool) (s
 				exists = true
 				break
 			}
+		} else if requireExact && strings.Contains(tags.Items[0].DockerImageReference, "@sha256:") {
+			pullSpec = tags.Items[0].DockerImageReference
+			exists = true
 		}
 		break
 	}
