@@ -1397,7 +1397,6 @@ const (
 	ClusterProfileAWSChinaQE              ClusterProfile = "aws-china-qe"
 	ClusterProfileAWSGovCloudQE           ClusterProfile = "aws-usgov-qe"
 	ClusterProfileAWSSC2SQE               ClusterProfile = "aws-sc2s-qe"
-	ClusterProfileAWSSCPQE                ClusterProfile = "aws-scp-qe"
 	ClusterProfileAWS1QE                  ClusterProfile = "aws-1-qe"
 	ClusterProfileAWSAutoreleaseQE        ClusterProfile = "aws-autorelease-qe"
 	ClusterProfileAWSSdQE                 ClusterProfile = "aws-sd-qe"
@@ -1634,7 +1633,6 @@ func ClusterProfiles() []ClusterProfile {
 		ClusterProfileOEXAWSQE,
 		ClusterProfileHyperfleetE2E,
 		ClusterProfileAWSSC2SQE,
-		ClusterProfileAWSSCPQE,
 		ClusterProfileAWSOutpostQE,
 		ClusterProfileAWSINTEROPQE,
 		ClusterProfileAWSTerraformQE,
@@ -1900,8 +1898,6 @@ func (p ClusterProfile) ClusterType() string {
 		return "aws-sc2s"
 	case ClusterProfileAWSEUSC:
 		return "aws-eusc"
-	case ClusterProfileAWSSCPQE:
-		return "aws-scp"
 	case ClusterProfileAWSOSDMSP:
 		return "aws-osd-msp"
 	case
@@ -2183,8 +2179,6 @@ func (p ClusterProfile) LeaseType() string {
 		return "aws-usgov-qe-quota-slice"
 	case ClusterProfileAWSSC2SQE:
 		return "aws-sc2s-qe-quota-slice"
-	case ClusterProfileAWSSCPQE:
-		return "aws-scp-qe-quota-slice"
 	case ClusterProfileAWSSustAutoRel412:
 		return "aws-sustaining-autorelease-412-quota-slice"
 	case ClusterProfileAWSINTEROPQE:
