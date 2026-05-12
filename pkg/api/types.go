@@ -1426,7 +1426,6 @@ const (
 	ClusterProfileAWSTelco                ClusterProfile = "aws-telco"
 	ClusterProfileAWSOpendatahub          ClusterProfile = "aws-opendatahub"
 	ClusterProfileAWSDevfile              ClusterProfile = "aws-devfile"
-	ClusterProfileAWSSPLAT                ClusterProfile = "aws-splat"
 	ClusterProfileAWSSustAutoRel412       ClusterProfile = "aws-sustaining-autorelease-412"
 	ClusterProfileAWSKubeVirt             ClusterProfile = "aws-kubevirt"
 	ClusterProfileAWSOVNPerfScale         ClusterProfile = "aws-ovn-perfscale"
@@ -1645,7 +1644,6 @@ func ClusterProfiles() []ClusterProfile {
 		ClusterProfileAWSTelco,
 		ClusterProfileAWSOpendatahub,
 		ClusterProfileAWSDevfile,
-		ClusterProfileAWSSPLAT,
 		ClusterProfileAWSSustAutoRel412,
 		ClusterProfileAWSKubeVirt,
 		ClusterProfileAWSOVNPerfScale,
@@ -1852,7 +1850,6 @@ func (p ClusterProfile) ClusterType() string {
 		ClusterProfileAWSKonfluxQE,
 		ClusterProfileAWSRHTAPPerformance,
 		ClusterProfileAWSRHDHPerf,
-		ClusterProfileAWSSPLAT,
 		ClusterProfileAWSSustAutoRel412,
 		ClusterProfileAWSKubeVirt,
 		ClusterProfileAWSOVNPerfScale,
@@ -2204,8 +2201,6 @@ func (p ClusterProfile) LeaseType() string {
 		return "aws-opendatahub-quota-slice"
 	case ClusterProfileAWSDevfile:
 		return "aws-devfile-quota-slice"
-	case ClusterProfileAWSSPLAT:
-		return "aws-splat-quota-slice"
 	case ClusterProfileAWSKubeVirt:
 		return "aws-kubevirt-quota-slice"
 	case ClusterProfileAWSRHOAIQE:
@@ -2569,7 +2564,7 @@ func GetDefaultClusterProfileSecretName(profile ClusterProfile) string {
 func LeaseTypeFromClusterType(t string) (string, error) {
 	switch t {
 	case
-		"aws", "aws-c2s", "aws-china", "aws-usgov", "aws-sc2s", "aws-eusc", "aws-osd-msp", "aws-opendatahub", "aws-splat",
+		"aws", "aws-c2s", "aws-china", "aws-usgov", "aws-sc2s", "aws-eusc", "aws-osd-msp", "aws-opendatahub",
 		"alibaba", "azure-2", "azure4", "azure-arc", "azure-arm64", "azurestack", "azuremag", "equinix-ocp-metal",
 		"gcp", "gcp-arm64", "gcp-opendatahub", "libvirt-ppc64le", "libvirt-ppc64le-s2s", "libvirt-s390x",
 		"libvirt-s390x-1", "libvirt-s390x-2", "libvirt-s390x-amd64", "libvirt-s390x-vpn", "ibmcloud-multi-ppc64le",
