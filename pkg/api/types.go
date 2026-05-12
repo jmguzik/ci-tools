@@ -1565,7 +1565,6 @@ const (
 	ClusterProfileKonfluxWorkspacesAWS    ClusterProfile = "konfluxworkspaces-aws"
 	ClusterProfileAWSObservabiltity       ClusterProfile = "aws-observability"
 	ClusterProfileAWSStackrox             ClusterProfile = "aws-stackrox"
-	ClusterProfileAWSSDCICD               ClusterProfile = "aws-sd-cicd"
 	ClusterProfileGCPSDCICD               ClusterProfile = "gcp-sd-cicd"
 	ClusterProfileAroRH                   ClusterProfile = "aro-redhat-tenant"
 	ClusterProfileAWSRHOAIQE              ClusterProfile = "aws-rhoai-qe"
@@ -1778,7 +1777,6 @@ func ClusterProfiles() []ClusterProfile {
 		ClusterProfileODFAWS,
 		ClusterProfileKonfluxWorkspacesAWS,
 		ClusterProfileAWSObservabiltity,
-		ClusterProfileAWSSDCICD,
 		ClusterProfileGCPSDCICD,
 		ClusterProfileAroRH,
 		ClusterProfileAWSRHOAIQE,
@@ -1870,7 +1868,6 @@ func (p ClusterProfile) ClusterType() string {
 		ClusterProfileAWSEdgeInfra,
 		ClusterProfileODFAWS,
 		ClusterProfileAWSObservabiltity,
-		ClusterProfileAWSSDCICD,
 		ClusterProfileKonfluxWorkspacesAWS,
 		ClusterProfileAWSRHOAIQE,
 		ClusterProfileAWSManagedRosaRHOAIQE,
@@ -2488,8 +2485,6 @@ func (p ClusterProfile) LeaseType() string {
 		return "konfluxworkspaces-aws-quota-slice"
 	case ClusterProfileAWSObservabiltity:
 		return "aws-observability-quota-slice"
-	case ClusterProfileAWSSDCICD:
-		return "aws-sd-cicd-quota-slice"
 	case ClusterProfileGCPSDCICD:
 		return "gcp-sd-cicd-quota-slice"
 	case ClusterProfileAroRH:
