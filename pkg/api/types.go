@@ -1576,7 +1576,6 @@ const (
 	ClusterProfileAWSMCOQE                ClusterProfile = "aws-mco-qe"
 	ClusterProfileAWSOADPQE               ClusterProfile = "aws-oadp-qe"
 	ClusterProfileAzureOADPQE             ClusterProfile = "azure-oadp-qe"
-	ClusterProfileGCPOADPQE               ClusterProfile = "gcp-oadp-qe"
 	ClusterProfileAWSlpChaos              ClusterProfile = "aws-lp-chaos"
 	ClusterProfileMetalRHgs               ClusterProfile = "metal-redhat-gs"
 	ClusterProfileAWSOSPQE                ClusterProfile = "aws-osp-qe"
@@ -1785,7 +1784,6 @@ func ClusterProfiles() []ClusterProfile {
 		ClusterProfileAWSMCOQE,
 		ClusterProfileAWSOADPQE,
 		ClusterProfileAzureOADPQE,
-		ClusterProfileGCPOADPQE,
 		ClusterProfileAWSlpChaos,
 		ClusterProfileMetalRHgs,
 		ClusterProfileAWSOSPQE,
@@ -2495,8 +2493,6 @@ func (p ClusterProfile) LeaseType() string {
 		return "aws-oadp-qe-quota-slice"
 	case ClusterProfileAzureOADPQE:
 		return "azure-oadp-qe-quota-slice"
-	case ClusterProfileGCPOADPQE:
-		return "gcp-oadp-qe-quota-slice"
 	case ClusterProfileAWSlpChaos:
 		return "aws-lp-chaos-quota-slice"
 	case ClusterProfileMetalRHgs:
@@ -2570,7 +2566,7 @@ func LeaseTypeFromClusterType(t string) (string, error) {
 		"kubevirt", "aws-cpaas", "osd-ephemeral", "gcp-virtualization", "aws-virtualization",
 		"azure-virtualization", "hypershift-aws", "hypershift-aks", "hypershift-azure",
 		"hypershift-powervs", "hypershift-powervs-cb", "hypershift-gcp", "aws-mco-qe",
-		"equinix-edge-enablement", "aws-oadp-qe", "azure-oadp-qe", "gcp-oadp-qe", "aws-lp-chaos", "aws-osp-qe",
+		"equinix-edge-enablement", "aws-oadp-qe", "azure-oadp-qe", "aws-lp-chaos", "aws-osp-qe",
 		"metal-redhat-gs", "aro-hcp-int", "aro-hcp-stg", "aro-hcp-prod", "aro-hcp-dev", "rosa-regional-platform-int", "hyperfleet-e2e",
 		"aro-classic-int", "aro-classic-stg", "aro-classic-prod", "aro-classic-dev", "rosa-e2e-01", "rosa-e2e-02", "rosa-e2e-03":
 		return t + "-quota-slice", nil
