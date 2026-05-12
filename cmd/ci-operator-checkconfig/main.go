@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -35,7 +34,7 @@ type options struct {
 	ciOPConfigAgent          agents.ConfigAgent
 	clusterProfiles          api.ClusterProfilesMap
 	clusterClaimOwners       api.ClusterClaimOwnersMap
-	clusterProfileSetDetails validation.ClusterProfileSetDetails
+	clusterProfileSetDetails api.ClusterProfileSetDetails
 }
 
 func (o *options) parse() error {
@@ -79,9 +78,11 @@ func (o *options) parse() error {
 	o.ciOPConfigAgent = ciOPConfigAgent
 
 	if clusterProfileSetDetailsPath != "" {
-		if err := o.loadClusterProfileDetails(clusterProfileSetDetailsPath); err != nil {
+		cpsd, err := load.ClusterProfileSetDetails(clusterProfileSetDetailsPath)
+		if err != nil {
 			return fmt.Errorf("load cluster profile set details: %w", err)
 		}
+		o.clusterProfileSetDetails = cpsd
 	}
 
 	if err := o.Options.Validate(); err != nil {
@@ -130,20 +131,6 @@ func (o *options) validate() (ret []error) {
 		ret = append(ret, err)
 	}
 	return append(ret, validateTags(seen)...)
-}
-
-func (o *options) loadClusterProfileDetails(p string) error {
-	cpsDetailsBytes, err := os.ReadFile(p)
-	if err != nil {
-		return fmt.Errorf("read file %s: %w", p, err)
-	}
-
-	o.clusterProfileSetDetails = make(map[api.ClusterProfile][]string)
-	if err := json.Unmarshal(cpsDetailsBytes, &o.clusterProfileSetDetails); err != nil {
-		return fmt.Errorf("unmarshal cluster profile set details: %w", err)
-	}
-
-	return nil
 }
 
 func (o *options) loadResolver(path string) error {
