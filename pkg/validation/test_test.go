@@ -16,6 +16,7 @@ import (
 
 	"github.com/openshift/ci-tools/pkg/api"
 	"github.com/openshift/ci-tools/pkg/testhelper"
+	utilregexp "github.com/openshift/ci-tools/pkg/util/regexp"
 )
 
 func TestValidateTests(t *testing.T) {
@@ -714,7 +715,7 @@ func TestValidateTests(t *testing.T) {
 	} {
 		t.Run(tc.id, func(t *testing.T) {
 			v := newSingleUseValidator()
-			errs := v.validateTestStepConfiguration(NewConfigContext(), "tests", tc.tests, tc.release, nil, tc.releases, sets.New[string](), tc.resolved)
+			errs := v.validateTestStepConfiguration(NewConfigContext(), "tests", tc.tests, tc.release, &api.Metadata{}, tc.releases, sets.New[string](), tc.resolved)
 			if tc.expectedError == nil && len(errs) > 0 {
 				t.Errorf("expected to be valid, got: %v", errs)
 			}
@@ -1968,7 +1969,7 @@ func TestValidateTestConfigurationType(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			v := NewValidator(nil, nil)
-			actual := v.validateTestConfigurationType("test", tc.test, nil, nil, nil, make(testInputImages), false)
+			actual := v.validateTestConfigurationType("test", tc.test, &api.Metadata{}, nil, nil, make(testInputImages), false)
 			if diff := cmp.Diff(tc.expected, actual, testhelper.EquateErrorMessage); diff != "" {
 				t.Errorf("expected differs from actual: %s", diff)
 			}
@@ -2223,38 +2224,86 @@ func TestVerifyClusterClaimOwnership(t *testing.T) {
 }
 
 func TestValidateClusterProfiles(t *testing.T) {
+	re := func(expr string) utilregexp.Regexp {
+		re, err := utilregexp.Compile(expr)
+		if err != nil {
+			t.Fatalf("compile regexp %s: %s", expr, err.Error())
+		}
+		return *re
+	}
+
 	t.Parallel()
 	for _, tc := range []struct {
 		name               string
 		clusterProfile     api.ClusterProfile
+		testName           string
 		metadata           *api.Metadata
 		clusterProfilesMap api.ClusterProfilesMap
-		cpsDetails         ClusterProfileSetDetails
+		cpsDetails         api.ClusterProfileSetDetails
 		wantErrs           []error
 	}{
 		{
 			name:           "Valid cluster profile",
+			metadata:       &api.Metadata{},
 			clusterProfile: api.ClusterProfileAROHCPDev,
 		},
 		{
 			name:           "invalid cluster profile",
+			metadata:       &api.Metadata{},
 			clusterProfile: "foobar",
 			wantErrs:       []error{errors.New(`foo: invalid cluster profile "foobar"`)},
 		},
 		{
 			name:           "Use cluster profile set",
+			metadata:       &api.Metadata{},
 			clusterProfile: "azure-2",
-			cpsDetails: ClusterProfileSetDetails{
-				"openshift-org-azure": []string{"azure-2"},
+			cpsDetails: api.ClusterProfileSetDetails{
+				ClusterProfileSetDetailsNew: api.ClusterProfileSetDetailsNew{
+					ClusterProfileSets: map[api.ClusterProfile][]string{
+						"openshift-org-azure": {"azure-2"},
+					},
+				},
 			},
 			wantErrs: []error{errors.New(`foo: invalid cluster profile "azure-2", use the cluster profile set "openshift-org-azure" instead`)},
+		},
+		{
+			name:           "Skip allowlisted test",
+			metadata:       &api.Metadata{Org: "openshift", Repo: "ci-tools", Branch: "main"},
+			testName:       "e2e-aws-ovn",
+			clusterProfile: "azure-2",
+			cpsDetails: api.ClusterProfileSetDetails{
+				ClusterProfileSetDetailsNew: api.ClusterProfileSetDetailsNew{
+					ClusterProfileSets: map[api.ClusterProfile][]string{
+						"openshift-org-azure": {"azure-2"},
+					},
+					TestsAllowlist: map[utilregexp.Regexp]map[utilregexp.Regexp]map[utilregexp.Regexp][]string{
+						re("openshift/ci-tools"): {re("main"): {re(""): {"e2e-aws-ovn"}}},
+					},
+				},
+			},
+		},
+		{
+			name:           "Skip allowlisted test that matches a pattern",
+			metadata:       &api.Metadata{Org: "openshift-priv", Repo: "ci-tools", Branch: "main", Variant: "nightly"},
+			testName:       "e2e-aws-ovn",
+			clusterProfile: "azure-2",
+			cpsDetails: api.ClusterProfileSetDetails{
+				ClusterProfileSetDetailsNew: api.ClusterProfileSetDetailsNew{
+					ClusterProfileSets: map[api.ClusterProfile][]string{
+						"openshift-org-azure": {"azure-2"},
+					},
+					TestsAllowlist: map[utilregexp.Regexp]map[utilregexp.Regexp]map[utilregexp.Regexp][]string{
+						re("openshift(-priv)?/ci-tools"): {re("main"): {re("daily|nightly"): {"e2e-aws-ovn"}}},
+					},
+				},
+			},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
 			v := NewValidator(tc.clusterProfilesMap, nil, WithClusterProfileSetDetails(tc.cpsDetails))
-			gotErrs := v.validateClusterProfile("foo", tc.clusterProfile, tc.metadata)
+			gotErrs := v.validateClusterProfile("foo", tc.clusterProfile, tc.testName, tc.metadata)
 
 			wantErrMsg := "<nil>"
 			if tc.wantErrs != nil {

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
@@ -12,6 +13,8 @@ import (
 	"sigs.k8s.io/prow/pkg/repoowners"
 
 	imagev1 "github.com/openshift/api/image/v1"
+
+	utilregexp "github.com/openshift/ci-tools/pkg/util/regexp"
 )
 
 const (
@@ -3112,6 +3115,74 @@ type ClusterProfileOwners struct {
 	Konflux *ClusterProfileKonfluxOwner `yaml:"konflux,omitempty" json:"konflux,omitempty"`
 }
 type ClusterClaimOwnersMap map[string]ClusterClaimDetails
+
+// +kubebuilder:object:generate=false
+type ClusterProfileSetDetails struct {
+	ClusterProfileSetDetailsNew
+}
+
+func (cps *ClusterProfileSetDetails) UnmarshalJSON(data []byte) error {
+	cpsDetails := make(map[ClusterProfile][]string)
+
+	if strings.Contains(string(data), `"cluster_profile_sets"`) {
+		newCPSDetails := ClusterProfileSetDetailsNew{}
+		if err := json.Unmarshal(data, &newCPSDetails); err != nil {
+			return fmt.Errorf("new ClusterProfileSetDetails schema: %w", err)
+		}
+		cps.ClusterProfileSetDetailsNew = newCPSDetails
+	} else {
+		if err := json.Unmarshal(data, &cpsDetails); err != nil {
+			return fmt.Errorf("old ClusterProfileSetDetails schema: %w", err)
+		}
+		cps.ClusterProfileSets = cpsDetails
+	}
+
+	return nil
+}
+
+// TODO: This will replace `ClusterProfileSetDetails` once the migration is complete.
+// +kubebuilder:object:generate=false
+type ClusterProfileSetDetailsNew struct {
+	ClusterProfileSets map[ClusterProfile][]string `json:"cluster_profile_sets,omitempty"`
+
+	// TestsAllowlist holds a list of tests for which we do not enfoce policy
+	// regarding the cluster profile sets usage.
+	// This deeply nested type match the following pattern:
+	//  "org/repo": "branch": "variant": "test"
+	TestsAllowlist map[utilregexp.Regexp]map[utilregexp.Regexp]map[utilregexp.Regexp][]string `json:"tests_allowlist,omitempty"`
+}
+
+func (cps ClusterProfileSetDetailsNew) FindSetByProfile(profile ClusterProfile) (ClusterProfile, bool) {
+	for cpsName, cpDetails := range cps.ClusterProfileSets {
+		if slices.Contains(cpDetails, string(profile)) {
+			return cpsName, true
+		}
+	}
+	return "", false
+}
+
+func (cps ClusterProfileSetDetailsNew) IsTestAllowlisted(test string, metadata Metadata) bool {
+	if cps.TestsAllowlist == nil {
+		return false
+	}
+
+	orgRepo, ok := utilregexp.LookupByMatch(cps.TestsAllowlist, metadata.Org+"/"+metadata.Repo)
+	if !ok {
+		return false
+	}
+
+	branch, ok := utilregexp.LookupByMatch(orgRepo, metadata.Branch)
+	if !ok {
+		return false
+	}
+
+	tests, ok := utilregexp.LookupByMatch(branch, metadata.Variant)
+	if !ok {
+		return false
+	}
+
+	return slices.Contains(tests, test)
+}
 
 type ClusterClaimDetails struct {
 	Claim  string                     `yaml:"claim"`

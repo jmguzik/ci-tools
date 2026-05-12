@@ -13,24 +13,18 @@ import (
 	"github.com/openshift/ci-tools/pkg/api"
 )
 
-type ClusterProfileDetails struct {
-	Name string `json:"name"`
-}
-
-type ClusterProfileSetDetails map[api.ClusterProfile][]string
-
 // Validator holds data used across validations.
 type Validator struct {
 	validClusterProfiles    api.ClusterProfilesMap
 	validClusterClaimOwners api.ClusterClaimOwnersMap
 	// hasTrapCache avoids redundant regexp searches on step commands.
 	hasTrapCache map[string]bool
-	cpsDetails   ClusterProfileSetDetails
+	cpsDetails   api.ClusterProfileSetDetails
 }
 
 type ValidatorOption func(*Validator)
 
-func WithClusterProfileSetDetails(cpsDetails ClusterProfileSetDetails) func(*Validator) {
+func WithClusterProfileSetDetails(cpsDetails api.ClusterProfileSetDetails) func(*Validator) {
 	return func(v *Validator) { v.cpsDetails = cpsDetails }
 }
 
@@ -38,7 +32,7 @@ func WithClusterProfileSetDetails(cpsDetails ClusterProfileSetDetails) func(*Val
 func NewValidator(profiles api.ClusterProfilesMap, clusterClaimOwners api.ClusterClaimOwnersMap, opts ...ValidatorOption) Validator {
 	v := Validator{
 		hasTrapCache: make(map[string]bool),
-		cpsDetails:   make(map[api.ClusterProfile][]string),
+		cpsDetails:   api.ClusterProfileSetDetails{},
 	}
 	for _, f := range opts {
 		f(&v)

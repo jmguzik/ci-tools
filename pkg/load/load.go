@@ -306,6 +306,21 @@ func ClusterProfilesConfig(configPath string) (api.ClusterProfilesMap, error) {
 	return mergedMap, nil
 }
 
+func ClusterProfileSetDetails(path string) (api.ClusterProfileSetDetails, error) {
+	cpsd := api.ClusterProfileSetDetails{}
+
+	cpsDetailsBytes, err := os.ReadFile(path)
+	if err != nil {
+		return cpsd, fmt.Errorf("read file %s: %w", path, err)
+	}
+
+	if err := json.Unmarshal(cpsDetailsBytes, &cpsd); err != nil {
+		return cpsd, fmt.Errorf("unmarshal file %s: %w", path, err)
+	}
+
+	return cpsd, nil
+}
+
 // ClusterClaimOwnersConfig loads cluster claim owners information from its config in the release repository
 func ClusterClaimOwnersConfig(configPath string) (api.ClusterClaimOwnersMap, error) {
 	configContents, err := os.ReadFile(configPath)
