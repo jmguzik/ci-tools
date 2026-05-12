@@ -1560,7 +1560,6 @@ const (
 	ClusterProfileAWSEdgeInfra            ClusterProfile = "aws-edge-infra"
 	ClusterProfileRHOpenShiftEcosystem    ClusterProfile = "rh-openshift-ecosystem"
 	ClusterProfileODFAWS                  ClusterProfile = "odf-aws"
-	ClusterProfileKonfluxWorkspacesAWS    ClusterProfile = "konfluxworkspaces-aws"
 	ClusterProfileAWSObservabiltity       ClusterProfile = "aws-observability"
 	ClusterProfileAWSStackrox             ClusterProfile = "aws-stackrox"
 	ClusterProfileAroRH                   ClusterProfile = "aro-redhat-tenant"
@@ -1769,7 +1768,6 @@ func ClusterProfiles() []ClusterProfile {
 		ClusterProfileAWSEdgeInfra,
 		ClusterProfileRHOpenShiftEcosystem,
 		ClusterProfileODFAWS,
-		ClusterProfileKonfluxWorkspacesAWS,
 		ClusterProfileAWSObservabiltity,
 		ClusterProfileAroRH,
 		ClusterProfileAWSRHOAIQE,
@@ -1859,7 +1857,6 @@ func (p ClusterProfile) ClusterType() string {
 		ClusterProfileAWSEdgeInfra,
 		ClusterProfileODFAWS,
 		ClusterProfileAWSObservabiltity,
-		ClusterProfileKonfluxWorkspacesAWS,
 		ClusterProfileAWSRHOAIQE,
 		ClusterProfileAWSManagedRosaRHOAIQE,
 		ClusterProfileAWSQUAYQE,
@@ -2466,8 +2463,6 @@ func (p ClusterProfile) LeaseType() string {
 		return "rh-openshift-ecosystem-quota-slice"
 	case ClusterProfileODFAWS:
 		return "odf-aws-quota-slice"
-	case ClusterProfileKonfluxWorkspacesAWS:
-		return "konfluxworkspaces-aws-quota-slice"
 	case ClusterProfileAWSObservabiltity:
 		return "aws-observability-quota-slice"
 	case ClusterProfileAroRH:
