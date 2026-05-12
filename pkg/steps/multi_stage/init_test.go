@@ -401,3 +401,60 @@ func TestSetupRBAC(t *testing.T) {
 		})
 	}
 }
+
+func TestCreateSTSConfigMap(t *testing.T) {
+	executor := &testhelper_kube.FakePodExecutor{
+		LoggingClient: loggingclient.New(
+			fakectrlruntimeclient.NewClientBuilder().Build(), nil),
+	}
+	fakeClient := &testhelper_kube.FakePodClient{
+		FakePodExecutor: executor,
+	}
+	s := &multiStageTestStep{
+		name:             "e2e-aws",
+		stsHubRoleARN:    "arn:aws:iam::111111111111:role/ci-step-runner",
+		stsTargetRoleARN: "arn:aws:iam::222222222222:role/ci-profile-aws-5",
+		client:           fakeClient,
+		jobSpec:          &api.JobSpec{},
+	}
+	s.jobSpec.SetNamespace("ci-op-test")
+
+	if err := s.createSTSConfigMap(context.Background()); err != nil {
+		t.Fatalf("createSTSConfigMap() error: %v", err)
+	}
+
+	cm := &corev1.ConfigMap{}
+	if err := executor.Get(context.Background(), ctrlruntimeclient.ObjectKey{
+		Namespace: "ci-op-test",
+		Name:      "e2e-aws-sts-config",
+	}, cm); err != nil {
+		t.Fatalf("failed to get created configmap: %v", err)
+	}
+
+	config, ok := cm.Data["config"]
+	if !ok {
+		t.Fatal("configmap missing 'config' key")
+	}
+
+	if !strings.Contains(config, "arn:aws:iam::111111111111:role/ci-step-runner") {
+		t.Error("config missing hub role ARN")
+	}
+	if !strings.Contains(config, "arn:aws:iam::222222222222:role/ci-profile-aws-5") {
+		t.Error("config missing target role ARN")
+	}
+	if !strings.Contains(config, "source_profile = hub") {
+		t.Error("config missing source_profile = hub")
+	}
+	if !strings.Contains(config, "web_identity_token_file = /var/run/secrets/aws/sts-token/token") {
+		t.Error("config missing web_identity_token_file")
+	}
+	if cm.Immutable == nil || !*cm.Immutable {
+		t.Error("configmap should be immutable")
+	}
+}
+
+func TestSTSConfigMapName(t *testing.T) {
+	if got := stsConfigMapName("e2e-aws"); got != "e2e-aws-sts-config" {
+		t.Errorf("stsConfigMapName(e2e-aws) = %s, want e2e-aws-sts-config", got)
+	}
+}

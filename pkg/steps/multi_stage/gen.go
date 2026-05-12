@@ -2,7 +2,7 @@ package multi_stage
 
 import (
 	"fmt"
-	"path/filepath"
+	"path"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -25,6 +25,10 @@ const (
 	profileVolumeName          = "cluster-profile"
 	vpnContainerName           = "vpn-client"
 	leaseProxyScriptsMountPath = "/opt/scripts/lease-proxy"
+	stsTokenVolumeName         = "aws-sts-token"
+	stsTokenMountPath          = "/var/run/secrets/aws/sts-token"
+	stsConfigVolumeName        = "aws-sts-config"
+	stsConfigMountPath         = "/var/run/secrets/aws/config"
 )
 
 func (s *multiStageTestStep) generateObservers(
@@ -223,9 +227,9 @@ func (s *multiStageTestStep) generatePods(
 			}
 		} else if needsKubeConfig {
 			container.Env = append(container.Env, []coreapi.EnvVar{
-				{Name: "KUBECONFIG", Value: filepath.Join(SecretMountPath, "kubeconfig")},
-				{Name: "KUBECONFIGMINIMAL", Value: filepath.Join(SecretMountPath, "kubeconfig-minimal")},
-				{Name: "KUBEADMIN_PASSWORD_FILE", Value: filepath.Join(SecretMountPath, "kubeadmin-password")},
+				{Name: "KUBECONFIG", Value: path.Join(SecretMountPath, "kubeconfig")},
+				{Name: "KUBECONFIGMINIMAL", Value: path.Join(SecretMountPath, "kubeconfig-minimal")},
+				{Name: "KUBEADMIN_PASSWORD_FILE", Value: path.Join(SecretMountPath, "kubeadmin-password")},
 			}...)
 		}
 		shmSize := allResources.Requests.Name(api.ShmResource, resource.BinarySI)
@@ -233,11 +237,15 @@ func (s *multiStageTestStep) generatePods(
 			addDshmVolume(shmSize, pod, container)
 		}
 		if s.profile != "" {
+			if !needsKubeConfig && s.stsHubRoleARN != "" && s.stsTargetRoleARN != "" {
+				errs = append(errs, fmt.Errorf("step %s sets no_kubeconfig but the test has STS enabled (hub_role_arn=%s, target_role_arn=%s); STS requires kubeconfig", step.As, s.stsHubRoleARN, s.stsTargetRoleARN))
+				continue
+			}
 			profileSecret, err := s.profileSecretName()
 			if err != nil {
 				return nil, nil, fmt.Errorf("get profile secret name: %w", err)
 			}
-			addProfile(profileSecret, s.profile, pod)
+			addProfile(profileSecret, s.profile, s.stsHubRoleARN, s.stsTargetRoleARN, pod)
 		}
 		if step.Cli != "" {
 			dependency := api.StepDependency{Name: fmt.Sprintf("%s:cli", api.ReleaseStreamFor(step.Cli))}
@@ -286,7 +294,7 @@ func isKubeconfigNeeded(step *api.LiteralTestStep, opts *generatePodOptions) boo
 func addSecretWrapper(pod *coreapi.Pod, vpnConf *vpnConf, skipKubeconfig bool, genPodOpts *generatePodOptions) {
 	volume := "entrypoint-wrapper"
 	dir := "/tmp/entrypoint-wrapper"
-	bin := filepath.Join(dir, "entrypoint-wrapper")
+	bin := path.Join(dir, "entrypoint-wrapper")
 	pod.Spec.Volumes = append(pod.Spec.Volumes, coreapi.Volume{
 		Name: volume,
 		VolumeSource: coreapi.VolumeSource{
@@ -448,10 +456,10 @@ func getClusterClaimPodParams(secretVolumeMounts []coreapi.VolumeMount, testName
 				foundMountPath = true
 				retMount = append(retMount, secretVolumeMount)
 				if secretName == api.HiveAdminKubeconfigSecret {
-					retEnv = append(retEnv, coreapi.EnvVar{Name: "KUBECONFIG", Value: filepath.Join(secretVolumeMount.MountPath, api.HiveAdminKubeconfigSecretKey)})
+					retEnv = append(retEnv, coreapi.EnvVar{Name: "KUBECONFIG", Value: path.Join(secretVolumeMount.MountPath, api.HiveAdminKubeconfigSecretKey)})
 				}
 				if secretName == api.HiveAdminPasswordSecret {
-					retEnv = append(retEnv, coreapi.EnvVar{Name: "KUBEADMIN_PASSWORD_FILE", Value: filepath.Join(secretVolumeMount.MountPath, api.HiveAdminPasswordSecretKey)})
+					retEnv = append(retEnv, coreapi.EnvVar{Name: "KUBEADMIN_PASSWORD_FILE", Value: path.Join(secretVolumeMount.MountPath, api.HiveAdminPasswordSecretKey)})
 				}
 				break
 			}
@@ -483,7 +491,7 @@ func addDshmVolume(shmSize *resource.Quantity, pod *coreapi.Pod, container *core
 	})
 }
 
-func addProfile(name string, profile api.ClusterProfile, pod *coreapi.Pod) {
+func addProfile(name string, profile api.ClusterProfile, hubRoleARN, targetRoleARN string, pod *coreapi.Pod) {
 	pod.Spec.Volumes = append(pod.Spec.Volumes, coreapi.Volume{
 		Name: profileVolumeName,
 		VolumeSource: coreapi.VolumeSource{
@@ -507,6 +515,59 @@ func addProfile(name string, profile api.ClusterProfile, pod *coreapi.Pod) {
 		Name:  ClusterProfileMountEnv,
 		Value: ClusterProfileMountPath,
 	}}...)
+
+	if hubRoleARN != "" && targetRoleARN != "" {
+		addSTSVolumes(pod)
+	}
+}
+
+func addSTSVolumes(pod *coreapi.Pod) {
+	expirationSeconds := int64(86400)
+
+	pod.Spec.Volumes = append(pod.Spec.Volumes, coreapi.Volume{
+		Name: stsTokenVolumeName,
+		VolumeSource: coreapi.VolumeSource{
+			Projected: &coreapi.ProjectedVolumeSource{
+				Sources: []coreapi.VolumeProjection{{
+					ServiceAccountToken: &coreapi.ServiceAccountTokenProjection{
+						Audience:          "sts.amazonaws.com",
+						ExpirationSeconds: &expirationSeconds,
+						Path:              "token",
+					},
+				}},
+			},
+		},
+	})
+
+	stsConfigCMName := stsConfigMapName(pod.Labels[MultiStageTestLabel])
+	pod.Spec.Volumes = append(pod.Spec.Volumes, coreapi.Volume{
+		Name: stsConfigVolumeName,
+		VolumeSource: coreapi.VolumeSource{
+			ConfigMap: &coreapi.ConfigMapVolumeSource{
+				LocalObjectReference: coreapi.LocalObjectReference{
+					Name: stsConfigCMName,
+				},
+			},
+		},
+	})
+
+	container := &pod.Spec.Containers[0]
+	container.VolumeMounts = append(container.VolumeMounts,
+		coreapi.VolumeMount{
+			Name:      stsTokenVolumeName,
+			MountPath: stsTokenMountPath,
+			ReadOnly:  true,
+		},
+		coreapi.VolumeMount{
+			Name:      stsConfigVolumeName,
+			MountPath: stsConfigMountPath,
+			ReadOnly:  true,
+		},
+	)
+	container.Env = append(container.Env,
+		coreapi.EnvVar{Name: "AWS_CONFIG_FILE", Value: path.Join(stsConfigMountPath, "config")},
+		coreapi.EnvVar{Name: "AWS_SDK_LOAD_CONFIG", Value: "1"},
+	)
 }
 
 func addCliInjector(imagestream string, pod *coreapi.Pod) {
@@ -527,7 +588,7 @@ func addCliInjector(imagestream string, pod *coreapi.Pod) {
 		// this line to pick appropriate oc version (i.e. oc.rhel9).
 		// Additionally, we need to check the existence of path because releases < 4.15 does not have oc.rhel8,
 		// and we fall back to old path due to backwards compatibility.
-		Args: []string{"-c", fmt.Sprintf("ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/'); if [[ -e /usr/share/openshift/linux_${ARCH}/oc.rhel8 ]]; then /bin/cp /usr/share/openshift/linux_${ARCH}/oc.rhel8 %s; else /bin/cp /usr/share/openshift/linux_${ARCH}/oc %s; fi", filepath.Join(CliMountPath, "oc"), CliMountPath)},
+		Args: []string{"-c", fmt.Sprintf("ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/'); if [[ -e /usr/share/openshift/linux_${ARCH}/oc.rhel8 ]]; then /bin/cp /usr/share/openshift/linux_${ARCH}/oc.rhel8 %s; else /bin/cp /usr/share/openshift/linux_${ARCH}/oc %s; fi", path.Join(CliMountPath, "oc"), CliMountPath)},
 		VolumeMounts: []coreapi.VolumeMount{{
 			Name:      volumeName,
 			MountPath: CliMountPath,

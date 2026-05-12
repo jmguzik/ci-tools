@@ -47,6 +47,8 @@ type leaseStep struct {
 	clusterProfileSetName    string
 	clusterProfileName       string
 	clusterProfileSecretName string
+	stsHubRoleARN            string
+	stsTargetRoleARN         string
 }
 
 func LeaseStep(client *lease.Client, leases []api.StepLease, wrapped api.Step, namespace func() string, metricsAgent *metrics.MetricsAgent,
@@ -94,6 +96,10 @@ func (s *leaseStep) Provides() api.ParameterMap {
 	parameters[api.ClusterProfileParam] = func() (string, error) { return s.clusterProfileName, nil }
 	// nolint:unparam
 	parameters[api.ClusterProfileSecretNameParam] = func() (string, error) { return s.clusterProfileSecretName, nil }
+	// nolint:unparam
+	parameters[api.STSHubRoleARNParam] = func() (string, error) { return s.stsHubRoleARN, nil }
+	// nolint:unparam
+	parameters[api.STSTargetRoleARNParam] = func() (string, error) { return s.stsTargetRoleARN, nil }
 
 	for _, l := range s.leases {
 		// nolint:unparam
@@ -273,6 +279,9 @@ func (s *leaseStep) handleClusterProfile(ctx context.Context, l *stepLease, name
 	if err != nil {
 		return fmt.Errorf("resolve cluster profile %s: %w", s.clusterProfileName, err)
 	}
+
+	s.stsHubRoleARN = cpDetails.HubRoleARN
+	s.stsTargetRoleARN = cpDetails.TargetRoleARN
 
 	if err := s.importClusterProfileSecret(ctx, cpDetails.Secret); err != nil {
 		return fmt.Errorf("import secret %s for cluster profile %s: %w", cpDetails.Secret, s.clusterProfileName, err)

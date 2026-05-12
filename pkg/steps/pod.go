@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path/filepath"
+	"path"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -294,12 +294,12 @@ func (s *podStep) generatePodForStep(image string, containerResources coreapi.Re
 			{
 				Name:      NamePerTest(api.HiveAdminKubeconfigSecret, s.config.As),
 				ReadOnly:  true,
-				MountPath: filepath.Join(testSecretDefaultPath, NamePerTest(api.HiveAdminKubeconfigSecret, s.config.As)),
+				MountPath: path.Join(testSecretDefaultPath, NamePerTest(api.HiveAdminKubeconfigSecret, s.config.As)),
 			},
 			{
 				Name:      NamePerTest(api.HiveAdminPasswordSecret, s.config.As),
 				ReadOnly:  true,
-				MountPath: filepath.Join(testSecretDefaultPath, NamePerTest(api.HiveAdminPasswordSecret, s.config.As)),
+				MountPath: path.Join(testSecretDefaultPath, NamePerTest(api.HiveAdminPasswordSecret, s.config.As)),
 			},
 		}...)
 		secretVolumes = append(secretVolumes, []coreapi.Volume{
@@ -335,8 +335,8 @@ func (s *podStep) generatePodForStep(image string, containerResources coreapi.Re
 	container.VolumeMounts = append(container.VolumeMounts, secretVolumeMounts...)
 	if s.clusterClaim != nil {
 		container.Env = append(container.Env, []coreapi.EnvVar{
-			{Name: "KUBECONFIG", Value: filepath.Join(filepath.Join(testSecretDefaultPath, NamePerTest(api.HiveAdminKubeconfigSecret, s.config.As)), api.HiveAdminKubeconfigSecretKey)},
-			{Name: "KUBEADMIN_PASSWORD_FILE", Value: filepath.Join(filepath.Join(testSecretDefaultPath, NamePerTest(api.HiveAdminPasswordSecret, s.config.As)), api.HiveAdminPasswordSecretKey)},
+			{Name: "KUBECONFIG", Value: path.Join(path.Join(testSecretDefaultPath, NamePerTest(api.HiveAdminKubeconfigSecret, s.config.As)), api.HiveAdminKubeconfigSecretKey)},
+			{Name: "KUBEADMIN_PASSWORD_FILE", Value: path.Join(path.Join(testSecretDefaultPath, NamePerTest(api.HiveAdminPasswordSecret, s.config.As)), api.HiveAdminPasswordSecretKey)},
 		}...)
 	}
 	pod.Spec.Volumes = append(pod.Spec.Volumes, secretVolumes...)

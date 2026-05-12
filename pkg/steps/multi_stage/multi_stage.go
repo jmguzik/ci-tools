@@ -132,6 +132,8 @@ type multiStageTestStep struct {
 	requireNestedPodman              bool
 	leaseProxyServerAvailable        bool
 	leaseProxyClientConfigMapBackoff wait.Backoff
+	stsHubRoleARN                    string
+	stsTargetRoleARN                 string
 }
 
 func MultiStageTestStep(
@@ -219,6 +221,32 @@ func (s *multiStageTestStep) profileSecretName() (string, error) {
 	return cpSecretName, nil
 }
 
+func (s *multiStageTestStep) retrieveSTSRoleARNParams() error {
+	if s.params == nil {
+		return nil
+	}
+
+	hubRole, err := s.params.Get(api.STSHubRoleARNParam)
+	if err != nil {
+		return fmt.Errorf("get %s: %w", api.STSHubRoleARNParam, err)
+	}
+
+	if hubRole != "" {
+		s.stsHubRoleARN = hubRole
+	}
+
+	targetRole, err := s.params.Get(api.STSTargetRoleARNParam)
+	if err != nil {
+		return fmt.Errorf("get %s: %w", api.STSTargetRoleARNParam, err)
+	}
+
+	if targetRole != "" {
+		s.stsTargetRoleARN = targetRole
+	}
+
+	return nil
+}
+
 func (s *multiStageTestStep) Inputs() (api.InputDefinition, error) {
 	return nil, nil
 }
@@ -238,6 +266,10 @@ func (s *multiStageTestStep) run(ctx context.Context) error {
 	}
 	if clusterProfile != "" {
 		s.profile = clusterProfile
+	}
+
+	if err := s.retrieveSTSRoleARNParams(); err != nil {
+		return fmt.Errorf("retrieve STS role ARN params: %w", err)
 	}
 
 	if s.profile != "" {
@@ -292,6 +324,11 @@ func (s *multiStageTestStep) run(ctx context.Context) error {
 	}
 	if err := s.createCommandConfigMaps(ctx); err != nil {
 		return fmt.Errorf("failed to create command configmap: %w", err)
+	}
+	if s.stsHubRoleARN != "" && s.stsTargetRoleARN != "" {
+		if err := s.createSTSConfigMap(ctx); err != nil {
+			return fmt.Errorf("failed to create STS config configmap: %w", err)
+		}
 	}
 	if err := s.setupRBAC(ctx); err != nil {
 		return fmt.Errorf("failed to create RBAC objects: %w", err)

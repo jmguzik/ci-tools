@@ -72,6 +72,8 @@ func TestGeneratePods(t *testing.T) {
 		secretVolumeMounts        []coreapi.VolumeMount
 		leaseProxyServerAvailable bool
 		paramsFunc                func() api.Parameters
+		stsHubRoleARN             string
+		stsTargetRoleARN          string
 	}{
 		{
 			name: "generate pods",
@@ -161,6 +163,36 @@ func TestGeneratePods(t *testing.T) {
 			},
 			leaseProxyServerAvailable: true,
 		},
+		{
+			name: "STS volumes",
+			config: &api.ReleaseBuildConfiguration{
+				Tests: []api.TestStepConfiguration{{
+					As: "e2e-aws",
+					MultiStageTestConfigurationLiteral: &api.MultiStageTestConfigurationLiteral{
+						ClusterProfile: api.ClusterProfileAWS,
+						Test: []api.LiteralTestStep{{
+							As: "step0", From: "src", Commands: "command0",
+							Timeout:     &prowapi.Duration{Duration: time.Hour},
+							GracePeriod: &prowapi.Duration{Duration: 20 * time.Second},
+						}},
+					}},
+				},
+			},
+			env: []coreapi.EnvVar{
+				{Name: "RELEASE_IMAGE_INITIAL", Value: "release:initial"},
+				{Name: "RELEASE_IMAGE_LATEST", Value: "release:latest"},
+				{Name: "LEASED_RESOURCE", Value: "uuid"},
+			},
+			paramsFunc: func() api.Parameters {
+				params := api.NewDeferredParameters(nil)
+				params.Add(api.ClusterProfileSecretNameParam, func() (string, error) {
+					return "cluster-secrets-aws-5", nil
+				})
+				return params
+			},
+			stsHubRoleARN:    "arn:aws:iam::111111111111:role/ci-step-runner",
+			stsTargetRoleARN: "arn:aws:iam::222222222222:role/ci-profile-aws-5",
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -172,6 +204,8 @@ func TestGeneratePods(t *testing.T) {
 
 			js := jobSpec()
 			step := newMultiStageTestStep(tc.config.Tests[0], tc.config, params, nil, &js, nil, "node-name", "", nil, false, nil, tc.leaseProxyServerAvailable, wait.Backoff{})
+			step.stsHubRoleARN = tc.stsHubRoleARN
+			step.stsTargetRoleARN = tc.stsTargetRoleARN
 			step.test[0].Resources = resourceRequirements
 
 			ret, _, err := step.generatePods(tc.config.Tests[0].MultiStageTestConfigurationLiteral.Test, tc.env, tc.secretVolumes, tc.secretVolumeMounts, nil)

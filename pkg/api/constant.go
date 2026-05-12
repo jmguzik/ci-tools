@@ -78,6 +78,8 @@ const (
 	ClusterProfileSetEnv          = "CLUSTER_PROFILE_SET_NAME"
 	ClusterProfileParam           = "CLUSTER_PROFILE"
 	ClusterProfileSecretNameParam = "CLUSTER_PROFILE_SECRET_NAME"
+	STSHubRoleARNParam            = "CI_STS_HUB_ROLE_ARN"
+	STSTargetRoleARNParam         = "CI_STS_TARGET_ROLE_ARN"
 
 	// SkipCensoringLabel is the label we use to mark a secret as not needing to be censored
 	SkipCensoringLabel = "ci.openshift.io/skip-censoring"
