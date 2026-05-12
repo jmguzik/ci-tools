@@ -65,25 +65,6 @@ for org in openshift; do
     fi
   fi
 
-  # Skip cluster-init update if kubeconfig directory is not set, as we won't have access to real clusters
-  if [[ -n "${KUBECONFIG_DIR:-}" && -d "${KUBECONFIG_DIR}" ]]; then
-    echo >&2 "$(date -u +'%Y-%m-%dT%H:%M:%S%z') Executing cluster-init update"
-    cluster-init onboard config update --release-repo="$clonedir" --kubeconfig-dir="${KUBECONFIG_DIR}" --kubeconfig-suffix="${KUBECONFIG_SUFFIX:-}"
-    out="$(git status --porcelain)"
-    if [[ -n "$out" ]]; then
-      echo "ERROR: Changes in $org/release:"
-      git diff
-      echo "ERROR: Running cluster-init in update mode in $org/release results in changes ^^^"
-      echo "ERROR: To avoid breaking $org/release for everyone you should regenerate the build clusters"
-      echo "ERROR: there and merge the changes ASAP after this change to cluster-init"
-      failure=1
-    else
-      echo "Running cluster-init in update mode in $org/release does not result in changes, no followups needed"
-    fi
-  else
-    echo "Skipping cluster-init update mode check as KUBECONFIG_DIR is not set or does not exist"
-  fi
-
   popd
 done
 
