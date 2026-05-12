@@ -1435,7 +1435,6 @@ const (
 	ClusterProfileAlibabaCloud            ClusterProfile = "alibabacloud"
 	ClusterProfileAlibabaCloudQE          ClusterProfile = "alibabacloud-qe"
 	ClusterProfileAlibabaCloudCNQE        ClusterProfile = "alibabacloud-cn-qe"
-	ClusterProfileAzure                   ClusterProfile = "azure"
 	ClusterProfileAzure2                  ClusterProfile = "azure-2"
 	ClusterProfileAzure4                  ClusterProfile = "azure4"
 	ClusterProfileAzureArc                ClusterProfile = "azure-arc"
