@@ -1435,7 +1435,6 @@ const (
 	ClusterProfileAlibabaCloudCNQE        ClusterProfile = "alibabacloud-cn-qe"
 	ClusterProfileAzure2                  ClusterProfile = "azure-2"
 	ClusterProfileAzure4                  ClusterProfile = "azure4"
-	ClusterProfileAzureArc                ClusterProfile = "azure-arc"
 	ClusterProfileAzureArm64              ClusterProfile = "azure-arm64"
 	ClusterProfileAzurePerfScale          ClusterProfile = "azure-perfscale"
 	ClusterProfileAzureStack              ClusterProfile = "azurestack"
@@ -1653,7 +1652,6 @@ func ClusterProfiles() []ClusterProfile {
 		ClusterProfileAlibabaCloudCNQE,
 		ClusterProfileAzure2,
 		ClusterProfileAzure4,
-		ClusterProfileAzureArc,
 		ClusterProfileAzureArm64,
 		ClusterProfileAzureArm64QE,
 		ClusterProfileAzureMag,
@@ -1898,7 +1896,6 @@ func (p ClusterProfile) ClusterType() string {
 		ClusterProfileAzure2,
 		ClusterProfileAzure4,
 		ClusterProfileOpenshiftOrgAzure,
-		ClusterProfileAzureArc,
 		ClusterProfileAzureQE,
 		ClusterProfileAzureObservability,
 		ClusterProfileAzureHCPQE,
@@ -2219,8 +2216,6 @@ func (p ClusterProfile) LeaseType() string {
 		return "azure4-quota-slice"
 	case ClusterProfileAzureArm64:
 		return "azure-arm64-quota-slice"
-	case ClusterProfileAzureArc:
-		return "azure-arc-quota-slice"
 	case ClusterProfileAzurePerfScale:
 		return "azure-perfscale-quota-slice"
 	case ClusterProfileAzureStack:
@@ -2565,7 +2560,7 @@ func LeaseTypeFromClusterType(t string) (string, error) {
 	switch t {
 	case
 		"aws", "aws-c2s", "aws-china", "aws-usgov", "aws-sc2s", "aws-eusc", "aws-osd-msp", "aws-opendatahub",
-		"alibaba", "azure-2", "azure4", "azure-arc", "azure-arm64", "azurestack", "azuremag", "equinix-ocp-metal",
+		"alibaba", "azure-2", "azure4", "azure-arm64", "azurestack", "azuremag", "equinix-ocp-metal",
 		"gcp", "gcp-arm64", "gcp-opendatahub", "libvirt-ppc64le", "libvirt-ppc64le-s2s", "libvirt-s390x",
 		"libvirt-s390x-1", "libvirt-s390x-2", "libvirt-s390x-amd64", "libvirt-s390x-vpn", "ibmcloud-multi-ppc64le",
 		"ibmcloud-multi-s390x", "nutanix", "nutanix-qe", "nutanix-qe-dis", "nutanix-qe-zone", "nutanix-qe-gpu",
