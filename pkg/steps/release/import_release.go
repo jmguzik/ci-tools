@@ -241,6 +241,7 @@ oc create configmap release-%s --from-file=%s.yaml=${ARTIFACT_DIR}/%s
 		for _, tag := range releaseIS.Spec.Tags {
 			existing.Insert(tag.Name)
 			tag.ReferencePolicy.Type = referencePolicy
+			tag.Reference = false
 			tag.ImportPolicy.ImportMode = imagev1.ImportModePreserveOriginal
 			tags = append(tags, tag)
 		}
@@ -250,6 +251,7 @@ oc create configmap release-%s --from-file=%s.yaml=${ARTIFACT_DIR}/%s
 			}
 			existing.Insert(tag.Name)
 			tag.ReferencePolicy.Type = referencePolicy
+			tag.Reference = false
 			tag.ImportPolicy.ImportMode = imagev1.ImportModePreserveOriginal
 			tags = append(tags, tag)
 		}
