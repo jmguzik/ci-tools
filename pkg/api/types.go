@@ -1499,7 +1499,6 @@ const (
 	ClusterProfileMetalPerfscaleOSP       ClusterProfile = "metal-perfscale-osp"
 	ClusterProfileMetalPerfscaleSelfSched ClusterProfile = "metal-perfscale-selfsched"
 	ClusterProfileMetalPerfscaleTelco     ClusterProfile = "metal-perfscale-telco"
-	ClusterProfileMetalTelco5GPTP         ClusterProfile = "metal-telco5g-ptp"
 	ClusterProfileNutanix                 ClusterProfile = "nutanix"
 	ClusterProfileNutanixQE               ClusterProfile = "nutanix-qe"
 	ClusterProfileNutanixQEDis            ClusterProfile = "nutanix-qe-dis"
@@ -1717,7 +1716,6 @@ func ClusterProfiles() []ClusterProfile {
 		ClusterProfileMetalPerfscaleOSP,
 		ClusterProfileMetalPerfscaleSelfSched,
 		ClusterProfileMetalPerfscaleTelco,
-		ClusterProfileMetalTelco5GPTP,
 		ClusterProfileNutanix,
 		ClusterProfileNutanixQE,
 		ClusterProfileNutanixQEDis,
@@ -1998,8 +1996,6 @@ func (p ClusterProfile) ClusterType() string {
 		return "metal-perfscale-selfsched"
 	case ClusterProfileMetalPerfscaleTelco:
 		return "metal-perfscale-telco"
-	case ClusterProfileMetalTelco5GPTP:
-		return "metal-telco5g-ptp"
 	case
 		ClusterProfileNutanix,
 		ClusterProfileNutanixQE,
@@ -2335,8 +2331,6 @@ func (p ClusterProfile) LeaseType() string {
 		return "metal-perfscale-selfsched-quota-slice"
 	case ClusterProfileMetalPerfscaleTelco:
 		return "metal-perfscale-telco-quota-slice"
-	case ClusterProfileMetalTelco5GPTP:
-		return "metal-telco5g-ptp-quota-slice"
 	case ClusterProfileNutanix:
 		return "nutanix-quota-slice"
 	case ClusterProfileNutanixQE:
