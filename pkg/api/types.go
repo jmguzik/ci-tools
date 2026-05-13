@@ -1400,7 +1400,6 @@ const (
 	ClusterProfileAWSChinaQE              ClusterProfile = "aws-china-qe"
 	ClusterProfileAWSGovCloudQE           ClusterProfile = "aws-usgov-qe"
 	ClusterProfileAWSSC2SQE               ClusterProfile = "aws-sc2s-qe"
-	ClusterProfileAWSSCPQE                ClusterProfile = "aws-scp-qe"
 	ClusterProfileAWS1QE                  ClusterProfile = "aws-1-qe"
 	ClusterProfileAWSAutoreleaseQE        ClusterProfile = "aws-autorelease-qe"
 	ClusterProfileAWSSdQE                 ClusterProfile = "aws-sd-qe"
@@ -1430,7 +1429,6 @@ const (
 	ClusterProfileAWSTelco                ClusterProfile = "aws-telco"
 	ClusterProfileAWSOpendatahub          ClusterProfile = "aws-opendatahub"
 	ClusterProfileAWSDevfile              ClusterProfile = "aws-devfile"
-	ClusterProfileAWSSPLAT                ClusterProfile = "aws-splat"
 	ClusterProfileAWSSustAutoRel412       ClusterProfile = "aws-sustaining-autorelease-412"
 	ClusterProfileAWSKubeVirt             ClusterProfile = "aws-kubevirt"
 	ClusterProfileAWSOVNPerfScale         ClusterProfile = "aws-ovn-perfscale"
@@ -1438,10 +1436,8 @@ const (
 	ClusterProfileAlibabaCloud            ClusterProfile = "alibabacloud"
 	ClusterProfileAlibabaCloudQE          ClusterProfile = "alibabacloud-qe"
 	ClusterProfileAlibabaCloudCNQE        ClusterProfile = "alibabacloud-cn-qe"
-	ClusterProfileAzure                   ClusterProfile = "azure"
 	ClusterProfileAzure2                  ClusterProfile = "azure-2"
 	ClusterProfileAzure4                  ClusterProfile = "azure4"
-	ClusterProfileAzureArc                ClusterProfile = "azure-arc"
 	ClusterProfileAzureArm64              ClusterProfile = "azure-arm64"
 	ClusterProfileAzurePerfScale          ClusterProfile = "azure-perfscale"
 	ClusterProfileAzureStack              ClusterProfile = "azurestack"
@@ -1506,9 +1502,6 @@ const (
 	ClusterProfileMetalPerfscaleOSP       ClusterProfile = "metal-perfscale-osp"
 	ClusterProfileMetalPerfscaleSelfSched ClusterProfile = "metal-perfscale-selfsched"
 	ClusterProfileMetalPerfscaleTelco     ClusterProfile = "metal-perfscale-telco"
-	ClusterProfileMetalTelco5G            ClusterProfile = "metal-telco5g"
-	ClusterProfileMetalTelcoV10N          ClusterProfile = "metal-telcov10n"
-	ClusterProfileMetalTelco5GPTP         ClusterProfile = "metal-telco5g-ptp"
 	ClusterProfileNutanix                 ClusterProfile = "nutanix"
 	ClusterProfileNutanixQE               ClusterProfile = "nutanix-qe"
 	ClusterProfileNutanixQEDis            ClusterProfile = "nutanix-qe-dis"
@@ -1519,7 +1512,6 @@ const (
 	ClusterProfileOpenStackIBMOSP         ClusterProfile = "openstack-ibm-osp"
 	ClusterProfileOpenStackNFV            ClusterProfile = "openstack-nfv"
 	ClusterProfileOpenStackMechaCentral   ClusterProfile = "openstack-vh-mecha-central"
-	ClusterProfileOpenStackMechaAz0       ClusterProfile = "openstack-vh-mecha-az0"
 	ClusterProfileOpenStackOsuosl         ClusterProfile = "openstack-osuosl"
 	ClusterProfileOpenStackVexxhost       ClusterProfile = "openstack-vexxhost"
 	ClusterProfileOpenStackVexxhostRHOS   ClusterProfile = "openstack-vh-bm-rhos"
@@ -1568,11 +1560,8 @@ const (
 	ClusterProfileAWSEdgeInfra            ClusterProfile = "aws-edge-infra"
 	ClusterProfileRHOpenShiftEcosystem    ClusterProfile = "rh-openshift-ecosystem"
 	ClusterProfileODFAWS                  ClusterProfile = "odf-aws"
-	ClusterProfileKonfluxWorkspacesAWS    ClusterProfile = "konfluxworkspaces-aws"
 	ClusterProfileAWSObservabiltity       ClusterProfile = "aws-observability"
 	ClusterProfileAWSStackrox             ClusterProfile = "aws-stackrox"
-	ClusterProfileAWSSDCICD               ClusterProfile = "aws-sd-cicd"
-	ClusterProfileGCPSDCICD               ClusterProfile = "gcp-sd-cicd"
 	ClusterProfileAroRH                   ClusterProfile = "aro-redhat-tenant"
 	ClusterProfileAWSRHOAIQE              ClusterProfile = "aws-rhoai-qe"
 	ClusterProfileAWSManagedRosaRHOAIQE   ClusterProfile = "aws-managed-rosa-rhoai-qe"
@@ -1585,7 +1574,6 @@ const (
 	ClusterProfileAWSMCOQE                ClusterProfile = "aws-mco-qe"
 	ClusterProfileAWSOADPQE               ClusterProfile = "aws-oadp-qe"
 	ClusterProfileAzureOADPQE             ClusterProfile = "azure-oadp-qe"
-	ClusterProfileGCPOADPQE               ClusterProfile = "gcp-oadp-qe"
 	ClusterProfileAWSlpChaos              ClusterProfile = "aws-lp-chaos"
 	ClusterProfileMetalRHgs               ClusterProfile = "metal-redhat-gs"
 	ClusterProfileAWSOSPQE                ClusterProfile = "aws-osp-qe"
@@ -1639,7 +1627,6 @@ func ClusterProfiles() []ClusterProfile {
 		ClusterProfileOEXAWSQE,
 		ClusterProfileHyperfleetE2E,
 		ClusterProfileAWSSC2SQE,
-		ClusterProfileAWSSCPQE,
 		ClusterProfileAWSOutpostQE,
 		ClusterProfileAWSINTEROPQE,
 		ClusterProfileAWSTerraformQE,
@@ -1653,7 +1640,6 @@ func ClusterProfiles() []ClusterProfile {
 		ClusterProfileAWSTelco,
 		ClusterProfileAWSOpendatahub,
 		ClusterProfileAWSDevfile,
-		ClusterProfileAWSSPLAT,
 		ClusterProfileAWSSustAutoRel412,
 		ClusterProfileAWSKubeVirt,
 		ClusterProfileAWSOVNPerfScale,
@@ -1663,7 +1649,6 @@ func ClusterProfiles() []ClusterProfile {
 		ClusterProfileAlibabaCloudCNQE,
 		ClusterProfileAzure2,
 		ClusterProfileAzure4,
-		ClusterProfileAzureArc,
 		ClusterProfileAzureArm64,
 		ClusterProfileAzureArm64QE,
 		ClusterProfileAzureMag,
@@ -1733,9 +1718,6 @@ func ClusterProfiles() []ClusterProfile {
 		ClusterProfileMetalPerfscaleOSP,
 		ClusterProfileMetalPerfscaleSelfSched,
 		ClusterProfileMetalPerfscaleTelco,
-		ClusterProfileMetalTelco5G,
-		ClusterProfileMetalTelcoV10N,
-		ClusterProfileMetalTelco5GPTP,
 		ClusterProfileNutanix,
 		ClusterProfileNutanixQE,
 		ClusterProfileNutanixQEDis,
@@ -1745,7 +1727,6 @@ func ClusterProfiles() []ClusterProfile {
 		ClusterProfileOSDEphemeral,
 		ClusterProfileOpenStackHwoffload,
 		ClusterProfileOpenStackIBMOSP,
-		ClusterProfileOpenStackMechaAz0,
 		ClusterProfileOpenStackMechaCentral,
 		ClusterProfileOpenStackNFV,
 		ClusterProfileOpenStackOsuosl,
@@ -1784,10 +1765,7 @@ func ClusterProfiles() []ClusterProfile {
 		ClusterProfileAWSEdgeInfra,
 		ClusterProfileRHOpenShiftEcosystem,
 		ClusterProfileODFAWS,
-		ClusterProfileKonfluxWorkspacesAWS,
 		ClusterProfileAWSObservabiltity,
-		ClusterProfileAWSSDCICD,
-		ClusterProfileGCPSDCICD,
 		ClusterProfileAroRH,
 		ClusterProfileAWSRHOAIQE,
 		ClusterProfileAWSManagedRosaRHOAIQE,
@@ -1799,7 +1777,6 @@ func ClusterProfiles() []ClusterProfile {
 		ClusterProfileAWSMCOQE,
 		ClusterProfileAWSOADPQE,
 		ClusterProfileAzureOADPQE,
-		ClusterProfileGCPOADPQE,
 		ClusterProfileAWSlpChaos,
 		ClusterProfileMetalRHgs,
 		ClusterProfileAWSOSPQE,
@@ -1862,7 +1839,6 @@ func (p ClusterProfile) ClusterType() string {
 		ClusterProfileAWSKonfluxQE,
 		ClusterProfileAWSRHTAPPerformance,
 		ClusterProfileAWSRHDHPerf,
-		ClusterProfileAWSSPLAT,
 		ClusterProfileAWSSustAutoRel412,
 		ClusterProfileAWSKubeVirt,
 		ClusterProfileAWSOVNPerfScale,
@@ -1878,8 +1854,6 @@ func (p ClusterProfile) ClusterType() string {
 		ClusterProfileAWSEdgeInfra,
 		ClusterProfileODFAWS,
 		ClusterProfileAWSObservabiltity,
-		ClusterProfileAWSSDCICD,
-		ClusterProfileKonfluxWorkspacesAWS,
 		ClusterProfileAWSRHOAIQE,
 		ClusterProfileAWSManagedRosaRHOAIQE,
 		ClusterProfileAWSQUAYQE,
@@ -1906,15 +1880,12 @@ func (p ClusterProfile) ClusterType() string {
 		return "aws-sc2s"
 	case ClusterProfileAWSEUSC:
 		return "aws-eusc"
-	case ClusterProfileAWSSCPQE:
-		return "aws-scp"
 	case ClusterProfileAWSOSDMSP:
 		return "aws-osd-msp"
 	case
 		ClusterProfileAzure2,
 		ClusterProfileAzure4,
 		ClusterProfileOpenshiftOrgAzure,
-		ClusterProfileAzureArc,
 		ClusterProfileAzureQE,
 		ClusterProfileAzureObservability,
 		ClusterProfileAzureHCPQE,
@@ -1963,7 +1934,6 @@ func (p ClusterProfile) ClusterType() string {
 		ClusterProfileGCPChaos,
 		ClusterProfileGCPConfidentialQE,
 		ClusterProfileGCPPerfScaleQE,
-		ClusterProfileGCPSDCICD,
 		ClusterProfileGCPQUAYQE,
 		ClusterProfileOSLGCP,
 		ClusterProfileOpenshiftOrgGCP:
@@ -2027,12 +1997,6 @@ func (p ClusterProfile) ClusterType() string {
 		return "metal-perfscale-selfsched"
 	case ClusterProfileMetalPerfscaleTelco:
 		return "metal-perfscale-telco"
-	case ClusterProfileMetalTelco5G:
-		return "metal-telco5g"
-	case ClusterProfileMetalTelco5GPTP:
-		return "metal-telco5g-ptp"
-	case ClusterProfileMetalTelcoV10N:
-		return "metal-telcov10n"
 	case
 		ClusterProfileNutanix,
 		ClusterProfileNutanixQE,
@@ -2049,8 +2013,6 @@ func (p ClusterProfile) ClusterType() string {
 		return "openstack-nfv"
 	case ClusterProfileOpenStackMechaCentral:
 		return "openstack-vh-mecha-central"
-	case ClusterProfileOpenStackMechaAz0:
-		return "openstack-vh-mecha-az0"
 	case ClusterProfileOpenStackOsuosl:
 		return "openstack-osuosl"
 	case ClusterProfileOpenStackVexxhost:
@@ -2191,8 +2153,6 @@ func (p ClusterProfile) LeaseType() string {
 		return "aws-usgov-qe-quota-slice"
 	case ClusterProfileAWSSC2SQE:
 		return "aws-sc2s-qe-quota-slice"
-	case ClusterProfileAWSSCPQE:
-		return "aws-scp-qe-quota-slice"
 	case ClusterProfileAWSSustAutoRel412:
 		return "aws-sustaining-autorelease-412-quota-slice"
 	case ClusterProfileAWSINTEROPQE:
@@ -2221,8 +2181,6 @@ func (p ClusterProfile) LeaseType() string {
 		return "aws-opendatahub-quota-slice"
 	case ClusterProfileAWSDevfile:
 		return "aws-devfile-quota-slice"
-	case ClusterProfileAWSSPLAT:
-		return "aws-splat-quota-slice"
 	case ClusterProfileAWSKubeVirt:
 		return "aws-kubevirt-quota-slice"
 	case ClusterProfileAWSRHOAIQE:
@@ -2241,8 +2199,6 @@ func (p ClusterProfile) LeaseType() string {
 		return "azure4-quota-slice"
 	case ClusterProfileAzureArm64:
 		return "azure-arm64-quota-slice"
-	case ClusterProfileAzureArc:
-		return "azure-arc-quota-slice"
 	case ClusterProfileAzurePerfScale:
 		return "azure-perfscale-quota-slice"
 	case ClusterProfileAzureStack:
@@ -2374,12 +2330,6 @@ func (p ClusterProfile) LeaseType() string {
 		return "metal-perfscale-selfsched-quota-slice"
 	case ClusterProfileMetalPerfscaleTelco:
 		return "metal-perfscale-telco-quota-slice"
-	case ClusterProfileMetalTelco5G:
-		return "metal-telco5g-quota-slice"
-	case ClusterProfileMetalTelcoV10N:
-		return "metal-telcov10n-quota-slice"
-	case ClusterProfileMetalTelco5GPTP:
-		return "metal-telco5g-ptp-quota-slice"
 	case ClusterProfileNutanix:
 		return "nutanix-quota-slice"
 	case ClusterProfileNutanixQE:
@@ -2400,8 +2350,6 @@ func (p ClusterProfile) LeaseType() string {
 		return "openstack-nfv-quota-slice"
 	case ClusterProfileOpenStackMechaCentral:
 		return "openstack-vh-mecha-central-quota-slice"
-	case ClusterProfileOpenStackMechaAz0:
-		return "openstack-vh-mecha-az0-quota-slice"
 	case ClusterProfileOpenStackNercDev:
 		return "openstack-nerc-dev-quota-slice"
 	case ClusterProfileOpenStackRHOSO:
@@ -2500,14 +2448,8 @@ func (p ClusterProfile) LeaseType() string {
 		return "rh-openshift-ecosystem-quota-slice"
 	case ClusterProfileODFAWS:
 		return "odf-aws-quota-slice"
-	case ClusterProfileKonfluxWorkspacesAWS:
-		return "konfluxworkspaces-aws-quota-slice"
 	case ClusterProfileAWSObservabiltity:
 		return "aws-observability-quota-slice"
-	case ClusterProfileAWSSDCICD:
-		return "aws-sd-cicd-quota-slice"
-	case ClusterProfileGCPSDCICD:
-		return "gcp-sd-cicd-quota-slice"
 	case ClusterProfileAroRH:
 		return "aro-redhat-tenant-quota-slice"
 	case ClusterProfileAWSManagedRosaRHOAIQE:
@@ -2526,8 +2468,6 @@ func (p ClusterProfile) LeaseType() string {
 		return "aws-oadp-qe-quota-slice"
 	case ClusterProfileAzureOADPQE:
 		return "azure-oadp-qe-quota-slice"
-	case ClusterProfileGCPOADPQE:
-		return "gcp-oadp-qe-quota-slice"
 	case ClusterProfileAWSlpChaos:
 		return "aws-lp-chaos-quota-slice"
 	case ClusterProfileMetalRHgs:
@@ -2590,8 +2530,8 @@ func GetDefaultClusterProfileSecretName(profile ClusterProfile) string {
 func LeaseTypeFromClusterType(t string) (string, error) {
 	switch t {
 	case
-		"aws", "aws-c2s", "aws-china", "aws-usgov", "aws-sc2s", "aws-eusc", "aws-osd-msp", "aws-opendatahub", "aws-splat",
-		"alibaba", "azure-2", "azure4", "azure-arc", "azure-arm64", "azurestack", "azuremag", "equinix-ocp-metal",
+		"aws", "aws-c2s", "aws-china", "aws-usgov", "aws-sc2s", "aws-eusc", "aws-osd-msp", "aws-opendatahub",
+		"alibaba", "azure-2", "azure4", "azure-arm64", "azurestack", "azuremag", "equinix-ocp-metal",
 		"gcp", "gcp-arm64", "gcp-opendatahub", "libvirt-ppc64le", "libvirt-ppc64le-s2s", "libvirt-s390x",
 		"libvirt-s390x-1", "libvirt-s390x-2", "libvirt-s390x-amd64", "libvirt-s390x-vpn", "ibmcloud-multi-ppc64le",
 		"ibmcloud-multi-s390x", "nutanix", "nutanix-qe", "nutanix-qe-dis", "nutanix-qe-zone", "nutanix-qe-gpu",
@@ -2601,7 +2541,7 @@ func LeaseTypeFromClusterType(t string) (string, error) {
 		"kubevirt", "aws-cpaas", "osd-ephemeral", "gcp-virtualization", "aws-virtualization",
 		"azure-virtualization", "hypershift-aws", "hypershift-aks", "hypershift-azure",
 		"hypershift-powervs", "hypershift-powervs-cb", "hypershift-gcp", "aws-mco-qe",
-		"equinix-edge-enablement", "aws-oadp-qe", "azure-oadp-qe", "gcp-oadp-qe", "aws-lp-chaos", "aws-osp-qe",
+		"equinix-edge-enablement", "aws-oadp-qe", "azure-oadp-qe", "aws-lp-chaos", "aws-osp-qe",
 		"metal-redhat-gs", "aro-hcp-int", "aro-hcp-stg", "aro-hcp-prod", "aro-hcp-dev", "rosa-regional-platform-int", "hyperfleet-e2e",
 		"aro-classic-int", "aro-classic-stg", "aro-classic-prod", "aro-classic-dev", "rosa-e2e-01", "rosa-e2e-02", "rosa-e2e-03":
 		return t + "-quota-slice", nil
