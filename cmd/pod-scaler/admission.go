@@ -37,7 +37,7 @@ import (
 	"github.com/openshift/ci-tools/pkg/steps"
 )
 
-func admit(port, healthPort int, certDir string, client buildclientv1.BuildV1Interface, kubeClient kubernetes.Interface, loaders map[string][]*cacheReloader, mutateResourceLimits bool, cpuCap int64, memoryCap string, cpuPriorityScheduling int64, percentageMeasured float64, measuredPodCPUIncrease float64, reporter results.PodScalerReporter) {
+func admit(port, healthPort int, certDir string, client buildclientv1.BuildV1Interface, kubeClient kubernetes.Interface, loaders map[string][]*cacheReloader, mutateResourceLimits bool, cpuCap int64, memoryCap string, cpuPriorityScheduling int64, percentageMeasured float64, measuredPodCPUIncrease float64, systemReservedCPU int64, reporter results.PodScalerReporter) {
 	logger := logrus.WithField("component", "pod-scaler admission")
 	logger.Infof("Initializing admission webhook server with %d loaders.", len(loaders))
 	health := pjutil.NewHealthOnPort(healthPort)
@@ -45,7 +45,7 @@ func admit(port, healthPort int, certDir string, client buildclientv1.BuildV1Int
 	decoder := admission.NewDecoder(scheme.Scheme)
 
 	// Initialize node allocatable CPU cache
-	nodeCache := newNodeAllocatableCache(kubeClient)
+	nodeCache := newNodeAllocatableCache(kubeClient, systemReservedCPU)
 
 	server := webhook.NewServer(webhook.Options{
 		Port:    port,
@@ -603,18 +603,23 @@ func (m *podMutator) addMeasuredPodAntiaffinity(pod *corev1.Pod, logger *logrus.
 
 // nodeAllocatableCache caches node allocatable CPU information
 type nodeAllocatableCache struct {
-	client     kubernetes.Interface
-	lock       sync.RWMutex
-	cache      map[string]int64 // workload type -> max allocatable CPU (in cores)
-	lastUpdate time.Time
+	client            kubernetes.Interface
+	lock              sync.RWMutex
+	cache             map[string]int64
+	lastUpdate        time.Time
+	systemReservedCPU int64
 }
 
-const nodeCacheRefreshInterval = 15 * time.Minute
+const (
+	nodeCacheRefreshInterval = 15 * time.Minute
+	maxMeasuredCPUCores      = 10
+)
 
-func newNodeAllocatableCache(client kubernetes.Interface) *nodeAllocatableCache {
+func newNodeAllocatableCache(client kubernetes.Interface, systemReservedCPU int64) *nodeAllocatableCache {
 	cache := &nodeAllocatableCache{
-		client: client,
-		cache:  make(map[string]int64),
+		client:            client,
+		cache:             make(map[string]int64),
+		systemReservedCPU: systemReservedCPU,
 	}
 
 	// Initial load
@@ -650,13 +655,11 @@ func (c *nodeAllocatableCache) refresh() {
 		workloadNodes[workloadType] = append(workloadNodes[workloadType], node)
 	}
 
-	// Find minimum allocatable CPU for each workload type
-	// Note: Allocatable already accounts for system/kubelet reserved resources
+	// Find minimum allocatable CPU per workload type, minus system reserve, capped at maxMeasuredCPUCores.
 	for workloadType, nodeList := range workloadNodes {
 		minAllocatable := int64(0)
 		for _, node := range nodeList {
 			cpu := node.Status.Allocatable[corev1.ResourceCPU]
-			// AsApproximateFloat64() returns the value in cores
 			cpuCores := int64(cpu.AsApproximateFloat64())
 
 			if minAllocatable == 0 || cpuCores < minAllocatable {
@@ -664,15 +667,16 @@ func (c *nodeAllocatableCache) refresh() {
 			}
 		}
 
-		// Cap at 10 cores maximum
-		if minAllocatable > 10 {
-			minAllocatable = 10
+		minAllocatable -= c.systemReservedCPU
+		if minAllocatable < 0 {
+			minAllocatable = 0
+		}
+		if minAllocatable > maxMeasuredCPUCores {
+			minAllocatable = maxMeasuredCPUCores
 		}
 
-		if minAllocatable > 0 {
-			newCache[workloadType] = minAllocatable
-			logger.Debugf("Workload type %s: min allocatable CPU = %d cores", workloadType, minAllocatable)
-		}
+		newCache[workloadType] = minAllocatable
+		logger.Debugf("Workload type %s: min allocatable CPU = %d cores (after %d core system reserve)", workloadType, minAllocatable, c.systemReservedCPU)
 	}
 
 	c.lock.Lock()
@@ -692,6 +696,5 @@ func (c *nodeAllocatableCache) getMaxCPUForWorkload(workloadType string) int64 {
 		return maxCPU
 	}
 
-	// Default to 10 cores if workload type not found
-	return 10
+	return maxMeasuredCPUCores
 }
