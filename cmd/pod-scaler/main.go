@@ -56,6 +56,7 @@ type producerOptions struct {
 	kubernetesOptions prowflagutil.KubernetesOptions
 	once              bool
 	ignoreLatest      time.Duration
+	maxDataAge        time.Duration
 }
 
 type consumerOptions struct {
@@ -78,6 +79,7 @@ func bindOptions(fs *flag.FlagSet) *options {
 	fs.StringVar(&o.mode, "mode", "", "Which mode to run in.")
 	o.producerOptions.kubernetesOptions.AddFlags(fs)
 	fs.DurationVar(&o.ignoreLatest, "ignore-latest", 0, "Duration of latest time series to ignore when querying Prometheus. For instance, 1h will ignore the latest hour of data.")
+	fs.DurationVar(&o.maxDataAge, "max-data-age", 90*24*time.Hour, "Maximum age of data to retain and query. Caps the Prometheus query range and prunes older cached data.")
 	fs.BoolVar(&o.once, "produce-once", false, "Query Prometheus and refresh cached data only once before exiting.")
 	fs.IntVar(&o.port, "port", 0, "Port to serve admission webhooks on.")
 	fs.IntVar(&o.uiPort, "ui-port", 0, "Port to serve frontend on.")
@@ -255,7 +257,7 @@ func mainProduce(opts *options, cache Cache) {
 		logger.Debugf("Loaded Prometheus client.")
 	}
 
-	produce(clients, cache, opts.ignoreLatest, opts.once)
+	produce(clients, cache, opts.ignoreLatest, opts.maxDataAge, opts.once)
 
 }
 

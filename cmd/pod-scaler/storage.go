@@ -161,10 +161,10 @@ func loadFrom(loader loader, metricName string) ([]byte, error) {
 }
 
 // storeCache prunes and stores cached query data to the given storage storer.
-func storeCache(storer storer, metricName string, data *podscaler.CachedQuery, logger *logrus.Entry) error {
+func storeCache(storer storer, metricName string, data *podscaler.CachedQuery, maxDataAge time.Duration, logger *logrus.Entry) error {
 	pruneStart := time.Now()
 	logger.Debug("Pruning cached Prometheus data.")
-	data.Prune()
+	data.PruneWithMaxAge(maxDataAge)
 	logger.Debugf("Pruned cached Prometheus data after %s.", time.Since(pruneStart).Round(time.Second))
 
 	flushStart := time.Now()
