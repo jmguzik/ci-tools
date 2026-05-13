@@ -35,6 +35,7 @@ type options struct {
 	defaultMultiRefJobTimeoutInHour   int64
 	dispatcherAddress                 string
 	dryRun                            bool
+	maxPRPQRAge                       time.Duration
 }
 
 func gatherOptions() (*options, error) {
@@ -48,6 +49,7 @@ func gatherOptions() (*options, error) {
 	fs.Int64Var(&o.defaultAggregatorJobTimeoutInHour, "aggregator-job-timeout", 6, "Amount of hours to wait for job to timeout in order to update status")
 	fs.Int64Var(&o.defaultMultiRefJobTimeoutInHour, "multi-ref-job-timeout", 6, "Amount of hours to wait for job to timeout in order to update status")
 	fs.StringVar(&o.dispatcherAddress, "dispatcher-address", "http://prowjob-dispatcher.ci.svc.cluster.local:8080", "Address of prowjob-dispatcher server.")
+	fs.DurationVar(&o.maxPRPQRAge, "max-prpqr-age", 7*24*time.Hour, "Maximum age of finished PullRequestPayloadQualificationRuns before garbage collection. Set to 0 to disable.")
 
 	if err := fs.Parse(os.Args[1:]); err != nil {
 		return o, fmt.Errorf("failed to parse flags: %w", err)
@@ -104,7 +106,7 @@ func main() {
 	duration := time.Duration(o.jobTriggerWaitInSeconds) * time.Second
 	defaultAggregatorJobTimeout := time.Duration(o.defaultAggregatorJobTimeoutInHour) * time.Hour
 	defaultMultiRefJobTimeout := time.Duration(o.defaultMultiRefJobTimeoutInHour) * time.Hour
-	if err := prpqr_reconciler.AddToManager(mgr, o.namespace, server.NewResolverClient(configResolverAddress), agent, o.dispatcherAddress, duration, defaultAggregatorJobTimeout, defaultMultiRefJobTimeout); err != nil {
+	if err := prpqr_reconciler.AddToManager(mgr, o.namespace, server.NewResolverClient(configResolverAddress), agent, o.dispatcherAddress, duration, defaultAggregatorJobTimeout, defaultMultiRefJobTimeout, o.maxPRPQRAge); err != nil {
 		logrus.WithError(err).Fatal("Failed to add prpqr_reconciler to manager")
 	}
 

@@ -83,9 +83,13 @@ type jobClusterCache struct {
 	lastCleared   time.Time
 }
 
-func AddToManager(mgr manager.Manager, ns string, rc injectingResolverClient, prowConfigAgent *prowconfig.Agent, dispatcherAddress string, jobTriggerWaitDuration time.Duration, defaultAggregatorJobTimeout time.Duration, defaultMultiRefJobTimeout time.Duration) error {
+func AddToManager(mgr manager.Manager, ns string, rc injectingResolverClient, prowConfigAgent *prowconfig.Agent, dispatcherAddress string, jobTriggerWaitDuration time.Duration, defaultAggregatorJobTimeout time.Duration, defaultMultiRefJobTimeout time.Duration, maxPRPQRAge time.Duration) error {
 	if err := pjstatussyncer.AddToManager(mgr, ns); err != nil {
 		return fmt.Errorf("failed to construct pjstatussyncer: %w", err)
+	}
+
+	if err := startGarbageCollector(mgr, ns, maxPRPQRAge); err != nil {
+		return fmt.Errorf("failed to start PRPQR garbage collector: %w", err)
 	}
 
 	c, err := controller.New(controllerName, mgr, controller.Options{
