@@ -2276,24 +2276,24 @@ func TestValidateClusterProfiles(t *testing.T) {
 					ClusterProfileSets: map[api.ClusterProfile][]string{
 						"openshift-org-azure": {"azure-2"},
 					},
-					TestsAllowlist: map[utilregexp.Regexp]map[utilregexp.Regexp]map[utilregexp.Regexp][]string{
-						re("openshift/ci-tools"): {re("main"): {re(""): {"e2e-aws-ovn"}}},
+					TestsAllowlist: map[utilregexp.Regexp]map[utilregexp.Regexp]map[utilregexp.Regexp][]utilregexp.Regexp{
+						re("openshift/ci-tools"): {re("main"): {re(""): {re("e2e-aws-ovn")}}},
 					},
 				},
 			},
 		},
 		{
 			name:           "Skip allowlisted test that matches a pattern",
-			metadata:       &api.Metadata{Org: "openshift-priv", Repo: "ci-tools", Branch: "main", Variant: "nightly"},
-			testName:       "e2e-aws-ovn",
+			metadata:       &api.Metadata{Org: "openshift-priv", Repo: "openshift-tests-private", Branch: "main", Variant: "nightly"},
+			testName:       "aws-ipi-public-ipv4-pool-byo-subnet-amd-f28-destructive",
 			clusterProfile: "azure-2",
 			cpsDetails: api.ClusterProfileSetDetails{
 				ClusterProfileSetDetailsNew: api.ClusterProfileSetDetailsNew{
 					ClusterProfileSets: map[api.ClusterProfile][]string{
 						"openshift-org-azure": {"azure-2"},
 					},
-					TestsAllowlist: map[utilregexp.Regexp]map[utilregexp.Regexp]map[utilregexp.Regexp][]string{
-						re("openshift(-priv)?/ci-tools"): {re("main"): {re("daily|nightly"): {"e2e-aws-ovn"}}},
+					TestsAllowlist: map[utilregexp.Regexp]map[utilregexp.Regexp]map[utilregexp.Regexp][]utilregexp.Regexp{
+						re("openshift(-priv)?/openshift-tests-private"): {re("main"): {re("daily|nightly"): {re(".*-ipi-public-ipv4-pool-.*")}}},
 					},
 				},
 			},
