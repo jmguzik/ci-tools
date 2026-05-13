@@ -43,9 +43,9 @@ func TestValidateCollectionName(t *testing.T) {
 			expectedValid: true,
 		},
 		{
-			name:          "valid collection name: underscore at the beginning",
+			name:          "invalid collection name: underscore at the beginning",
 			collection:    "_name",
-			expectedValid: true,
+			expectedValid: false,
 		},
 		{
 			name:          "valid collection name: multiple underscores",
@@ -588,6 +588,31 @@ func TestValidateGroupName(t *testing.T) {
 		{
 			name:          "invalid group: ends with underscore",
 			group:         "group_",
+			expectedValid: false,
+		},
+		{
+			name:          "valid group: uppercase letters",
+			group:         "MY_UPPERCASE_GROUP",
+			expectedValid: true,
+		},
+		{
+			name:          "valid group: mixed case",
+			group:         "scalingPipelines",
+			expectedValid: true,
+		},
+		{
+			name:          "valid group: --dot-- prefix", // sadly we have to have this, because of backwards compatibility
+			group:         "--dot--awscred",
+			expectedValid: true,
+		},
+		{
+			name:          "valid group: uppercase in nested path",
+			group:         "teams/slcm/BOS2-Nokia-bastion",
+			expectedValid: true,
+		},
+		{
+			name:          "invalid group: arbitrary leading hyphen",
+			group:         "--awscred",
 			expectedValid: false,
 		},
 	}

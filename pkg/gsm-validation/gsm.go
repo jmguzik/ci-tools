@@ -17,7 +17,7 @@ const (
 	UnderscoreSuffix = "--"
 
 	CollectionRegex = "^([a-z0-9_-]*[a-z0-9])?$"
-	GroupRegex      = `^[a-z0-9]+([a-z0-9_-]*[a-z0-9]+)?(/[a-z0-9]+([a-z0-9_-]*[a-z0-9]+)?)*$`
+	GroupRegex      = `^(--dot--)?[a-zA-Z0-9]+([a-zA-Z0-9_-]*[a-zA-Z0-9]+)?(/[a-zA-Z0-9]+([a-zA-Z0-9_-]*[a-zA-Z0-9]+)?)*$`
 	SecretNameRegex = "^[A-Za-z0-9_-]+$"
 
 	// MaxCollectionLength is the maximum length of a collection name
@@ -46,7 +46,10 @@ func ValidateCollectionName(collection string) bool {
 		return false
 	}
 
-	// Cannot end with underscore (would create collection___secret)
+	// Cannot start or end with underscore
+	if strings.HasPrefix(collection, "_") {
+		return false
+	}
 	if strings.HasSuffix(collection, "_") {
 		return false
 	}
@@ -85,8 +88,11 @@ func ValidateSecretName(secretName string) bool {
 		return false
 	}
 
-	// Cannot start with underscore (would create collection___secret)
+	// Cannot start or end with underscore
 	if strings.HasPrefix(secretName, "_") {
+		return false
+	}
+	if strings.HasSuffix(secretName, "_") {
 		return false
 	}
 
