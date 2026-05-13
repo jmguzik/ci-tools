@@ -3151,7 +3151,7 @@ type ClusterProfileSetDetailsNew struct {
 	// regarding the cluster profile sets usage.
 	// This deeply nested type match the following pattern:
 	//  "org/repo": "branch": "variant": "test"
-	TestsAllowlist map[utilregexp.Regexp]map[utilregexp.Regexp]map[utilregexp.Regexp][]string `json:"tests_allowlist,omitempty"`
+	TestsAllowlist map[utilregexp.Regexp]map[utilregexp.Regexp]map[utilregexp.Regexp][]utilregexp.Regexp `json:"tests_allowlist,omitempty"`
 }
 
 func (cps ClusterProfileSetDetailsNew) FindSetByProfile(profile ClusterProfile) (ClusterProfile, bool) {
@@ -3183,7 +3183,13 @@ func (cps ClusterProfileSetDetailsNew) IsTestAllowlisted(test string, metadata M
 		return false
 	}
 
-	return slices.Contains(tests, test)
+	for _, t := range tests {
+		if t.Pattern.MatchString(test) {
+			return true
+		}
+	}
+
+	return false
 }
 
 type ClusterClaimDetails struct {
