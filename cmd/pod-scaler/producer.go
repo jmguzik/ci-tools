@@ -70,7 +70,7 @@ func queriesByMetric() map[string]string {
 	return queries
 }
 
-func produce(clients map[string]prometheusapi.API, dataCache Cache, ignoreLatest time.Duration, once bool) {
+func produce(clients map[string]prometheusapi.API, dataCache Cache, ignoreLatest, maxDataAge time.Duration, once bool) {
 	var execute func(func())
 	if once {
 		execute = func(f func()) {
@@ -121,8 +121,9 @@ func produce(clients map[string]prometheusapi.API, dataCache Cache, ignoreLatest
 			}
 			until := time.Now().Add(-ignoreLatest)
 			q := querier{
-				lock: &sync.RWMutex{},
-				data: cache,
+				lock:       &sync.RWMutex{},
+				data:       cache,
+				maxDataAge: maxDataAge,
 			}
 			wg := &sync.WaitGroup{}
 			for clusterName, client := range clients {
@@ -152,7 +153,7 @@ func produce(clients map[string]prometheusapi.API, dataCache Cache, ignoreLatest
 				}()
 			}
 			wg.Wait()
-			if err := storeCache(dataCache, name, cache, logger); err != nil {
+			if err := storeCache(dataCache, name, cache, maxDataAge, logger); err != nil {
 				logger.WithError(err).Error("Failed to write cached data.")
 			}
 		}
@@ -184,8 +185,9 @@ func rangeFrom(r prometheusapi.Range) podscaler.TimeRange {
 }
 
 type querier struct {
-	lock *sync.RWMutex
-	data *podscaler.CachedQuery
+	lock       *sync.RWMutex
+	data       *podscaler.CachedQuery
+	maxDataAge time.Duration
 }
 
 type clusterMetadata struct {
@@ -214,8 +216,15 @@ func (q *querier) execute(ctx context.Context, c *clusterMetadata, until time.Ti
 	if err != nil {
 		return fmt.Errorf("could not determine Prometheus retention duration: %w", err)
 	}
+	start := time.Now().Add(-time.Duration(retention))
+	if q.maxDataAge > 0 {
+		maxStart := time.Now().Add(-q.maxDataAge)
+		if maxStart.After(start) {
+			start = maxStart
+		}
+	}
 	r := prometheusapi.Range{
-		Start: time.Now().Add(-time.Duration(retention)),
+		Start: start,
 		End:   until,
 		Step:  1 * time.Minute,
 	}
