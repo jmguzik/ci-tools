@@ -483,8 +483,6 @@
         path_strategy: single
       gcs_credentials_secret: gce-sa-credentials-gcs-publisher
       grace_period: 15s
-      sparse_checkout_files:
-      - Dockerfile
       timeout: 4h0m0s
       utility_images:
         clonerefs: gcr.io/k8s-prow/clonerefs:v20190129-0a3c54c
@@ -570,8 +568,6 @@
         number: 1234
         sha: test_sha
       repo: release
-      sparse_checkout_files:
-      - Dockerfile
     report: true
     rerun_command: /pj-rehearse periodic-ci-super-trooper-master-changed-periodic
     type: presubmit

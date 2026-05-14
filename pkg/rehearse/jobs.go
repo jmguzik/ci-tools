@@ -577,6 +577,10 @@ func (jc *JobConfigurer) ConvertPeriodicsToPresubmits(periodics []prowconfig.Per
 			return nil, fmt.Errorf("makeRehearsalPresubmit failed: %w", err)
 		}
 
+		if p.DecorationConfig != nil {
+			p.DecorationConfig.SparseCheckoutFiles = nil
+		}
+
 		if len(p.ExtraRefs) > 0 {
 			// we aren't injecting this as we do for presubmits, but we need it to be set
 			p.ExtraRefs[0].WorkDir = true
