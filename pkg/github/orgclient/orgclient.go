@@ -1,4 +1,4 @@
-package prcreation
+package orgclient
 
 import (
 	"strings"
@@ -8,8 +8,8 @@ import (
 
 // OrgAwareClient wraps a github.Client so that FindIssues routes through
 // FindIssuesWithOrg. Prow's App auth round-tripper requires the org in
-// the request context to resolve the installation token, but
-// bumper.UpdatePullRequestWithLabels internally calls FindIssues which
+// the request context to resolve the installation token, but callers like
+// bumper.UpdatePullRequestWithLabels internally call FindIssues which
 // passes an empty org.
 //
 // When IsAppAuth is true, BotUser() appends "[bot]" to the login so that
@@ -27,9 +27,8 @@ func (c *OrgAwareClient) FindIssues(query, sort string, asc bool) ([]github.Issu
 // BotUser returns the bot user data. When the client is using GitHub App auth,
 // it appends the "[bot]" suffix to the login. GitHub Apps act as "slug[bot]"
 // users, but prow's getUserData only stores the bare slug. The search API's
-// author: qualifier requires the full "slug[bot]" form to match PRs created
-// by the App; using the bare slug results in a 422 because that user does not
-// exist on GitHub.
+// author: qualifier requires the full "slug[bot]" form to match issues created
+// by the App.
 func (c *OrgAwareClient) BotUser() (*github.UserData, error) {
 	user, err := c.Client.BotUser()
 	if err != nil {

@@ -16,6 +16,7 @@ import (
 
 	"github.com/openshift/ci-tools/pkg/api"
 	"github.com/openshift/ci-tools/pkg/config"
+	"github.com/openshift/ci-tools/pkg/github/orgclient"
 	"github.com/openshift/ci-tools/pkg/promotion"
 )
 
@@ -64,13 +65,21 @@ func main() {
 		logrus.Fatalf("Invalid options: %v", err)
 	}
 
-	if err := secret.Add(o.github.TokenPath); err != nil {
-		logrus.WithError(err).Fatal("Error starting secrets agent.")
+	if o.github.TokenPath != "" {
+		if err := secret.Add(o.github.TokenPath); err != nil {
+			logrus.WithError(err).Fatal("Error starting secrets agent.")
+		}
 	}
 
-	client, err := o.github.GitHubClient(o.dryRun)
+	ghClient, err := o.github.GitHubClient(o.dryRun)
 	if err != nil {
 		logrus.WithError(err).Fatal("Error creating github client.")
+	}
+
+	client := &orgclient.OrgAwareClient{
+		Client:    ghClient,
+		Org:       "openshift",
+		IsAppAuth: o.github.AppID != "",
 	}
 
 	botUser, err := client.BotUser()
@@ -79,7 +88,7 @@ func main() {
 	}
 
 	failed := false
-	if err := client.Throttle(300, 300); err != nil {
+	if err := ghClient.Throttle(300, 300); err != nil {
 		logrus.WithError(err).Fatal("failed to throttle")
 	}
 

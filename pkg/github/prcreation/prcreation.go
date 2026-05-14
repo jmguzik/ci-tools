@@ -15,6 +15,8 @@ import (
 	"sigs.k8s.io/prow/pkg/flagutil"
 	"sigs.k8s.io/prow/pkg/github"
 	"sigs.k8s.io/prow/pkg/labels"
+
+	"github.com/openshift/ci-tools/pkg/github/orgclient"
 )
 
 type PRCreationOptions struct {
@@ -340,7 +342,7 @@ func (o *PRCreationOptions) ensurePR(org, repo, branch, prTitle, head, headBranc
 
 	// Wrap the client so FindIssues routes through FindIssuesWithOrg,
 	// which is required for GitHub App auth.
-	prClient := github.Client(&OrgAwareClient{Client: o.GithubClient, Org: org, IsAppAuth: isAppAuth})
+	prClient := github.Client(&orgclient.OrgAwareClient{Client: o.GithubClient, Org: org, IsAppAuth: isAppAuth})
 
 	return bumper.UpdatePullRequestWithLabels(
 		prClient, org, repo, prTitle, prBody,
