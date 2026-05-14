@@ -305,9 +305,22 @@ func addPodUtils(
 		// disabled.
 		decorationConfig := *decorationConfig
 		decorationConfig.SkipCloning = nil
+		decorationConfig.SparseCheckoutFiles = nil
+
+		var cloneRefs *prowv1.Refs
+		if jobSpec.Refs != nil {
+			r := *jobSpec.Refs
+			r.SparseCheckoutFiles = nil
+			cloneRefs = &r
+		}
+		var cloneExtraRefs []prowv1.Refs
+		for _, r := range jobSpec.ExtraRefs {
+			r.SparseCheckoutFiles = nil
+			cloneExtraRefs = append(cloneExtraRefs, r)
+		}
 
 		codeMount, codeVolume := decorate.CodeMountAndVolume()
-		cloneRefsContainer, refs, cloneRefsVolumes, err := decorate.CloneRefs(prowv1.ProwJob{Spec: prowv1.ProwJobSpec{Refs: jobSpec.Refs, ExtraRefs: jobSpec.ExtraRefs, DecorationConfig: &decorationConfig}}, codeMount, logMount)
+		cloneRefsContainer, refs, cloneRefsVolumes, err := decorate.CloneRefs(prowv1.ProwJob{Spec: prowv1.ProwJobSpec{Refs: cloneRefs, ExtraRefs: cloneExtraRefs, DecorationConfig: &decorationConfig}}, codeMount, logMount)
 		if err != nil {
 			return fmt.Errorf("failed to construct clonerefs: %w", err)
 		}
